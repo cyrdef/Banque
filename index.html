@@ -1,212 +1,26 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Budget Mensuel</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
-<style>
-  :root {
-    --bg: #F7F7F5;
-    --surface: #FFFFFF;
-    --surface2: #F0EFEB;
-    --border: rgba(0,0,0,0.08);
-    --border-strong: rgba(0,0,0,0.15);
-    --text: #1A1A18;
-    --text-muted: #6B6B67;
-    --text-faint: #A8A8A4;
-    --accent: #2C5F8A;
-    --accent-light: #E8F0F8;
-    --accent-text: #1A3F5C;
-    --green: #1D7A4F;
-    --green-light: #E6F5EE;
-    --red: #B03A2E;
-    --red-light: #FAEAE8;
-    --amber: #8A6200;
-    --amber-light: #FDF5E0;
-    --radius: 10px;
-    --radius-lg: 16px;
-    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
-    --shadow-lg: 0 8px 32px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.06);
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; min-height: 100vh; }
-
-  /* ── TOAST ──────────────────────────────────────────────────── */
-  #toast-container {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    z-index: 9999;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    pointer-events: none;
-  }
-  .toast {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    background: var(--surface);
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius);
-    padding: 12px 14px;
-    box-shadow: var(--shadow-lg);
-    min-width: 260px;
-    max-width: 340px;
-    pointer-events: auto;
-    animation: toastIn 0.25s ease;
-    transition: opacity 0.3s, transform 0.3s;
-  }
-  .toast.hide { opacity: 0; transform: translateX(20px); }
-  .toast-icon { font-size: 17px; flex-shrink: 0; margin-top: 1px; }
-  .toast-body { flex: 1; }
-  .toast-title { font-size: 13px; font-weight: 600; color: var(--text); }
-  .toast-msg { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
-  .toast-close { background: none; border: none; cursor: pointer; color: var(--text-faint); font-size: 14px; padding: 0; flex-shrink: 0; }
-  .toast-close:hover { color: var(--text); }
-  .toast.success .toast-icon { color: var(--green); }
-  .toast.error .toast-icon { color: var(--red); }
-  .toast.info .toast-icon { color: var(--accent); }
-  .toast.warn .toast-icon { color: var(--amber); }
-  .toast.success { border-left: 3px solid var(--green); }
-  .toast.error { border-left: 3px solid var(--red); }
-  .toast.info { border-left: 3px solid var(--accent); }
-  .toast.warn { border-left: 3px solid var(--amber); }
-  @keyframes toastIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: none; } }
-
-  nav { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 24px; display: flex; align-items: center; justify-content: space-between; height: 56px; position: sticky; top: 0; z-index: 50; }
-  .nav-brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 15px; color: var(--text); }
-  .nav-brand i { color: var(--accent); font-size: 22px; }
-  .nav-right { display: flex; align-items: center; gap: 12px; }
-  .month-nav { display: flex; align-items: center; gap: 8px; }
-  .month-nav button { background: none; border: 1px solid var(--border); border-radius: 8px; width: 32px; height: 32px; cursor: pointer; color: var(--text-muted); display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
-  .month-nav button:hover { background: var(--surface2); border-color: var(--border-strong); }
-  #monthLabel { font-weight: 500; font-size: 14px; min-width: 130px; text-align: center; }
-
-  .nav-user { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-muted); }
-  .nav-user i { font-size: 16px; }
-
-  .container { max-width: 1100px; margin: 0 auto; padding: 24px 20px; }
-  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-  
-  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; box-shadow: var(--shadow); }
-  .card-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-faint); margin-bottom: 16px; display: flex; align-items: center; gap: 6px; }
-  
-  .metric { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px 20px; box-shadow: var(--shadow); }
-  .metric-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-faint); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
-  .metric-value { font-family: 'JetBrains Mono', monospace; font-size: 26px; font-weight: 500; color: var(--text); }
-  .metric-value.green { color: var(--green); }
-  .metric-value.red { color: var(--red); }
-  .metric-sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
-  
-  .progress-bar { height: 6px; background: var(--surface2); border-radius: 4px; overflow: hidden; margin-top: 10px; }
-  .progress-fill { height: 100%; border-radius: 4px; transition: width 0.4s ease; }
-  .progress-fill.ok { background: var(--green); }
-  .progress-fill.warn { background: var(--amber); }
-  .progress-fill.over { background: var(--red); }
-
-  .cat-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
-  .cat-row:last-child { border-bottom: none; }
-  .cat-icon { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 17px; flex-shrink: 0; }
-  .cat-info { flex: 1; min-width: 0; }
-  .cat-name { font-size: 13px; font-weight: 500; color: var(--text); display: flex; align-items: center; gap: 6px; }
-  .cat-amounts { font-size: 11px; color: var(--text-muted); margin-top: 2px; font-family: 'JetBrains Mono', monospace; }
-  .cat-pct { font-size: 12px; font-weight: 500; color: var(--text-muted); flex-shrink: 0; min-width: 38px; text-align: right; }
-  .cat-actions { display: flex; gap: 4px; }
-
-  .txn-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
-  .txn-row:last-child { border-bottom: none; }
-  .txn-icon { width: 34px; height: 34px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
-  .txn-info { flex: 1; min-width: 0; }
-  .txn-desc { font-size: 13px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .txn-meta { font-size: 11px; color: var(--text-faint); margin-top: 1px; }
-  .txn-amount { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 500; flex-shrink: 0; }
-  .txn-amount.debit { color: var(--red); }
-  .txn-amount.credit { color: var(--green); }
-
-  .chart-wrap { position: relative; width: 100%; height: 220px; }
-
-  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--text); transition: all 0.15s; font-family: 'Inter', sans-serif; }
-  .btn:hover { background: var(--surface2); border-color: var(--border-strong); }
-  .btn-primary { background: var(--accent); color: white; border-color: var(--accent); }
-  .btn-primary:hover { background: var(--accent-text); border-color: var(--accent-text); }
-  .btn-sm { padding: 5px 9px; font-size: 12px; border-radius: 6px; }
-  .btn-ghost { border-color: transparent; background: transparent; }
-  .btn-ghost:hover { background: var(--surface2); border-color: var(--border); }
-  .btn-danger { color: var(--red); border-color: transparent; background: transparent; }
-  .btn-danger:hover { background: var(--red-light); }
-  .icon-btn { width: 28px; height: 28px; padding: 0; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 14px; border: 1px solid transparent; background: transparent; cursor: pointer; color: var(--text-muted); transition: all 0.15s; }
-  .icon-btn:hover { background: var(--surface2); color: var(--text); }
-  .icon-btn.danger:hover { background: var(--red-light); color: var(--red); }
-
-  .badge { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 20px; letter-spacing: 0.04em; }
-  .badge-over { background: var(--red-light); color: var(--red); }
-  .badge-warn { background: var(--amber-light); color: var(--amber); }
-  .badge-ok { background: var(--green-light); color: var(--green); }
-
-  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 200; align-items: center; justify-content: center; padding: 20px; }
-  .modal-overlay.open { display: flex; }
-  .modal { background: var(--surface); border-radius: var(--radius-lg); padding: 24px; width: 100%; max-width: 420px; box-shadow: 0 20px 60px rgba(0,0,0,0.15); }
-  .modal-title { font-size: 16px; font-weight: 600; margin-bottom: 20px; display: flex; align-items: center; gap: 8px; }
-  .field { margin-bottom: 14px; }
-  .field label { font-size: 12px; font-weight: 500; color: var(--text-muted); display: block; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.05em; }
-  .field input, .field select { width: 100%; padding: 9px 12px; border: 1px solid var(--border-strong); border-radius: 8px; font-size: 13px; font-family: 'Inter', sans-serif; background: var(--surface); color: var(--text); outline: none; transition: border-color 0.15s; }
-  .field input:focus, .field select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(44,95,138,0.1); }
-  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
-
-  .tabs { display: flex; gap: 2px; background: var(--surface2); padding: 3px; border-radius: 10px; margin-bottom: 20px; }
-  .tab { flex: 1; padding: 7px; text-align: center; border-radius: 7px; font-size: 13px; font-weight: 500; cursor: pointer; color: var(--text-muted); transition: all 0.15s; border: none; background: transparent; font-family: 'Inter', sans-serif; display: flex; align-items: center; justify-content: center; gap: 6px; }
-  .tab.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
-
-  .alert { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 12px; }
-  .alert-warn { background: var(--amber-light); color: var(--amber); border: 1px solid rgba(138,98,0,0.2); }
-  .alert-over { background: var(--red-light); color: var(--red); border: 1px solid rgba(176,58,46,0.2); }
-
-  .color-grid { display: flex; flex-wrap: wrap; gap: 8px; }
-  .color-swatch { width: 28px; height: 28px; border-radius: 7px; cursor: pointer; border: 2px solid transparent; transition: all 0.15s; }
-  .color-swatch.selected { border-color: var(--text); transform: scale(1.1); }
-
-  .emoji-grid { display: flex; flex-wrap: wrap; gap: 6px; max-height: 120px; overflow-y: auto; }
-  .emoji-opt { width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; font-size: 18px; border-radius: 8px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); transition: all 0.15s; }
-  .emoji-opt:hover, .emoji-opt.selected { background: var(--accent-light); border-color: var(--accent); }
-
-  .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
-  .section-title { font-size: 13px; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 8px; }
-
-  .empty { text-align: center; padding: 40px 20px; color: var(--text-faint); }
-  .empty i { font-size: 40px; display: block; margin-bottom: 10px; }
-  .empty p { font-size: 13px; }
-
-  #loadingScreen { position: fixed; inset: 0; background: var(--bg); z-index: 400; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 16px; }
-  .spinner { width: 36px; height: 36px; border: 3px solid var(--border-strong); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  @media (max-width: 700px) {
-    .grid-2, .grid-3 { grid-template-columns: 1fr; }
-    nav { padding: 0 16px; }
-    .container { padding: 16px; }
-    #monthLabel { min-width: 100px; font-size: 13px; }
-    .nav-user-email { display: none; }
-  }
-  @media (max-width: 480px) {
-    .month-nav button { width: 28px; height: 28px; }
-  }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Budget Mensuel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+  <link rel="stylesheet" href="budget.css">
 </head>
 <body>
 
+<!-- TOAST -->
 <div id="toast-container"></div>
 
+<!-- LOADING -->
 <div id="loadingScreen">
   <div class="spinner"></div>
   <p style="color:var(--text-muted);font-size:13px;">Vérification de l'accès…</p>
 </div>
 
+<!-- NAV -->
 <nav>
   <div class="nav-brand">
     <i class="ti ti-building-bank"></i>
@@ -214,40 +28,59 @@
   </div>
   <div class="nav-right">
     <div class="month-nav">
-      <button onclick="changeMonth(-1)" aria-label="Mois précédent"><i class="ti ti-chevron-left"></i></button>
+      <button data-prev-month aria-label="Mois précédent"><i class="ti ti-chevron-left"></i></button>
       <span id="monthLabel">–</span>
-      <button onclick="changeMonth(1)" aria-label="Mois suivant"><i class="ti ti-chevron-right"></i></button>
+      <button data-next-month aria-label="Mois suivant"><i class="ti ti-chevron-right"></i></button>
     </div>
-    <button class="btn btn-sm" onclick="openModal('addTxn')"><i class="ti ti-plus"></i> Dépense</button>
-    <button class="btn btn-sm btn-ghost" onclick="openModal('settings')" aria-label="Paramètres"><i class="ti ti-settings"></i></button>
+    <button class="btn btn-sm" id="btn-addTxn"><i class="ti ti-plus"></i> Dépense</button>
+    <button class="btn btn-sm btn-ghost" id="btn-settings" aria-label="Paramètres"><i class="ti ti-settings"></i></button>
     <div class="nav-user">
       <i class="ti ti-user-circle"></i>
-      <span class="nav-user-email" id="navUserEmail" style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
-      <button class="icon-btn" onclick="doLogout()" title="Se déconnecter" style="color:var(--text-muted);">
+      <span class="nav-user-email" id="navUserEmail"
+        style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+      <button class="icon-btn" id="btn-logout" title="Se déconnecter">
         <i class="ti ti-logout"></i>
       </button>
     </div>
   </div>
 </nav>
 
+<!-- MAIN -->
 <div class="container">
-  <div class="grid-3" style="margin-bottom:16px;" id="metrics">
-    <div class="metric"><div class="metric-label"><i class="ti ti-receipt"></i> Budget prévu</div><div class="metric-value" id="m-budget">–</div><div class="metric-sub" id="m-budget-sub"></div></div>
-    <div class="metric"><div class="metric-label"><i class="ti ti-arrow-down-circle"></i> Dépensé</div><div class="metric-value red" id="m-spent">–</div><div class="metric-sub" id="m-spent-sub"></div></div>
-    <div class="metric"><div class="metric-label"><i class="ti ti-trending-up"></i> Restant</div><div class="metric-value" id="m-left">–</div><div class="metric-sub" id="m-left-sub"></div></div>
+
+  <!-- MÉTRIQUES -->
+  <div class="grid-3" style="margin-bottom:16px;">
+    <div class="metric">
+      <div class="metric-label"><i class="ti ti-receipt"></i> Budget prévu</div>
+      <div class="metric-value" id="m-budget">–</div>
+      <div class="metric-sub"  id="m-budget-sub"></div>
+    </div>
+    <div class="metric">
+      <div class="metric-label"><i class="ti ti-arrow-down-circle"></i> Dépensé</div>
+      <div class="metric-value red" id="m-spent">–</div>
+      <div class="metric-sub"      id="m-spent-sub"></div>
+    </div>
+    <div class="metric">
+      <div class="metric-label"><i class="ti ti-trending-up"></i> Restant</div>
+      <div class="metric-value" id="m-left">–</div>
+      <div class="metric-sub"  id="m-left-sub"></div>
+    </div>
   </div>
 
+  <!-- ALERTES -->
   <div id="alerts"></div>
 
   <div class="grid-2">
+    <!-- CATÉGORIES -->
     <div class="card">
       <div class="section-header">
         <div class="card-title"><i class="ti ti-layout-grid"></i> Catégories</div>
-        <button class="btn btn-sm" onclick="openModal('addCat')"><i class="ti ti-plus"></i> Catégorie</button>
+        <button class="btn btn-sm" id="btn-addCat"><i class="ti ti-plus"></i> Catégorie</button>
       </div>
       <div id="catList"></div>
     </div>
 
+    <!-- GRAPHIQUES -->
     <div style="display:flex;flex-direction:column;gap:16px;">
       <div class="card" style="padding-bottom:16px;">
         <div class="card-title"><i class="ti ti-chart-bar"></i> Répartition</div>
@@ -260,89 +93,128 @@
     </div>
   </div>
 
+  <!-- TRANSACTIONS -->
   <div class="card" style="margin-top:16px;">
     <div class="section-header">
       <div class="card-title"><i class="ti ti-list"></i> Transactions du mois</div>
       <div style="display:flex;gap:8px;">
-        <input type="text" id="searchInput" placeholder="Rechercher…" style="padding:6px 10px;border:1px solid var(--border);border-radius:7px;font-size:12px;font-family:'Inter',sans-serif;outline:none;width:160px;" oninput="renderTxns()">
-        <select id="catFilter" style="padding:6px 10px;border:1px solid var(--border);border-radius:7px;font-size:12px;font-family:'Inter',sans-serif;outline:none;" onchange="renderTxns()">
+        <input type="text" id="searchInput" placeholder="Rechercher…"
+          style="padding:6px 10px;border:1px solid var(--border);border-radius:7px;font-size:12px;font-family:'Inter',sans-serif;outline:none;width:160px;">
+        <select id="catFilter"
+          style="padding:6px 10px;border:1px solid var(--border);border-radius:7px;font-size:12px;font-family:'Inter',sans-serif;outline:none;">
           <option value="">Toutes les cat.</option>
         </select>
       </div>
     </div>
     <div id="txnList"></div>
   </div>
-</div>
 
-<!-- MODAL: Ajouter dépense -->
+</div><!-- /container -->
+
+<!-- ── MODAL : Nouvelle / modifier transaction ─────────────────────────────── -->
 <div class="modal-overlay" id="modal-addTxn">
   <div class="modal">
-    <div class="modal-title"><i class="ti ti-receipt" style="color:var(--accent)"></i> <span id="txnModalTitle">Nouvelle transaction</span></div>
+    <div class="modal-title">
+      <i class="ti ti-receipt" style="color:var(--accent)"></i>
+      <span id="txnModalTitle">Nouvelle transaction</span>
+    </div>
     <input type="hidden" id="txnEditId">
-    <div class="field"><label>Description</label><input type="text" id="txn-desc" placeholder="Ex : Électricité EDF"></div>
+    <div class="field">
+      <label>Description</label>
+      <input type="text" id="txn-desc" placeholder="Ex : Électricité EDF">
+    </div>
     <div class="field-row">
-      <div class="field"><label>Montant (€)</label><input type="number" id="txn-amount" placeholder="0.00" step="0.01" min="0"></div>
-      <div class="field"><label>Date</label><input type="date" id="txn-date"></div>
+      <div class="field">
+        <label>Montant (€)</label>
+        <input type="number" id="txn-amount" placeholder="0.00" step="0.01" min="0">
+      </div>
+      <div class="field">
+        <label>Date</label>
+        <input type="date" id="txn-date">
+      </div>
     </div>
     <div class="field"><label>Catégorie</label><select id="txn-cat"></select></div>
-    <div class="field"><label>Type</label>
+    <div class="field">
+      <label>Type</label>
       <select id="txn-type">
         <option value="debit">💸 Dépense</option>
         <option value="credit">💰 Revenu / remboursement</option>
       </select>
     </div>
-    <div class="field"><label>Note (optionnel)</label><input type="text" id="txn-note" placeholder="Commentaire libre…"></div>
+    <div class="field">
+      <label>Note (optionnel)</label>
+      <input type="text" id="txn-note" placeholder="Commentaire libre…">
+    </div>
     <div class="modal-actions">
-      <button class="btn" onclick="closeModal('addTxn')">Annuler</button>
-      <button class="btn btn-primary" onclick="saveTxn()"><i class="ti ti-check"></i> Enregistrer</button>
+      <button class="btn" id="btn-cancelTxn">Annuler</button>
+      <button class="btn btn-primary" id="btn-saveTxn"><i class="ti ti-check"></i> Enregistrer</button>
     </div>
   </div>
 </div>
 
-<!-- MODAL: Catégorie -->
+<!-- ── MODAL : Nouvelle / modifier catégorie ──────────────────────────────── -->
 <div class="modal-overlay" id="modal-addCat">
   <div class="modal">
-    <div class="modal-title"><i class="ti ti-layout-grid" style="color:var(--accent)"></i> <span id="catModalTitle">Nouvelle catégorie</span></div>
+    <div class="modal-title">
+      <i class="ti ti-layout-grid" style="color:var(--accent)"></i>
+      <span id="catModalTitle">Nouvelle catégorie</span>
+    </div>
     <input type="hidden" id="catEditId">
-    <div class="field"><label>Nom</label><input type="text" id="cat-name" placeholder="Ex : Alimentation"></div>
-    <div class="field"><label>Icône</label>
+    <div class="field">
+      <label>Nom</label>
+      <input type="text" id="cat-name" placeholder="Ex : Alimentation">
+    </div>
+    <div class="field">
+      <label>Icône</label>
       <div class="emoji-grid" id="emojiGrid"></div>
     </div>
-    <div class="field"><label>Couleur</label>
+    <div class="field">
+      <label>Couleur</label>
       <div class="color-grid" id="colorGrid"></div>
     </div>
-    <div class="field"><label>Budget mensuel prévu (€)</label><input type="number" id="cat-budget" placeholder="0.00" step="0.01" min="0"></div>
+    <div class="field">
+      <label>Budget mensuel prévu (€)</label>
+      <input type="number" id="cat-budget" placeholder="0.00" step="0.01" min="0">
+    </div>
     <div class="modal-actions">
-      <button class="btn" onclick="closeModal('addCat')">Annuler</button>
-      <button class="btn btn-primary" onclick="saveCat()"><i class="ti ti-check"></i> Enregistrer</button>
+      <button class="btn" id="btn-cancelCat">Annuler</button>
+      <button class="btn btn-primary" id="btn-saveCat"><i class="ti ti-check"></i> Enregistrer</button>
     </div>
   </div>
 </div>
 
-<!-- MODAL: Budget rapide -->
+<!-- ── MODAL : Modifier budget rapide ─────────────────────────────────────── -->
 <div class="modal-overlay" id="modal-editBudget">
   <div class="modal" style="max-width:320px;">
-    <div class="modal-title"><i class="ti ti-target" style="color:var(--accent)"></i> Modifier le budget</div>
+    <div class="modal-title">
+      <i class="ti ti-target" style="color:var(--accent)"></i> Modifier le budget
+    </div>
     <input type="hidden" id="editBudgetCatId">
-    <div class="field"><label>Budget mensuel pour <strong id="editBudgetCatName"></strong></label><input type="number" id="editBudgetVal" placeholder="0.00" step="0.01" min="0"></div>
+    <div class="field">
+      <label>Budget mensuel pour <strong id="editBudgetCatName"></strong></label>
+      <input type="number" id="editBudgetVal" placeholder="0.00" step="0.01" min="0">
+    </div>
     <div class="modal-actions">
-      <button class="btn" onclick="closeModal('editBudget')">Annuler</button>
-      <button class="btn btn-primary" onclick="saveBudget()"><i class="ti ti-check"></i> Valider</button>
+      <button class="btn" id="btn-cancelBudget">Annuler</button>
+      <button class="btn btn-primary" id="btn-saveBudget"><i class="ti ti-check"></i> Valider</button>
     </div>
   </div>
 </div>
 
-<!-- MODAL: Paramètres -->
+<!-- ── MODAL : Paramètres ──────────────────────────────────────────────────── -->
 <div class="modal-overlay" id="modal-settings">
   <div class="modal">
-    <div class="modal-title"><i class="ti ti-settings" style="color:var(--accent)"></i> Paramètres</div>
+    <div class="modal-title">
+      <i class="ti ti-settings" style="color:var(--accent)"></i> Paramètres
+    </div>
     <div class="tabs">
-      <button class="tab active" id="tab-general" onclick="switchTab('general')"><i class="ti ti-adjustments"></i> Général</button>
-      <button class="tab" id="tab-firebase" onclick="switchTab('firebase')"><i class="ti ti-database"></i> Firebase</button>
+      <button class="tab active" id="tab-general"><i class="ti ti-adjustments"></i> Général</button>
+      <button class="tab"        id="tab-firebase"><i class="ti ti-database"></i> Firebase</button>
     </div>
     <div id="tab-content-general">
       <div class="field"><label>Nom de l'app</label><input type="text" id="s-name"></div>
-      <div class="field"><label>Devise</label>
+      <div class="field">
+        <label>Devise</label>
         <select id="s-currency">
           <option value="EUR">€ Euro</option>
           <option value="USD">$ Dollar US</option>
@@ -351,488 +223,31 @@
           <option value="MAD">MAD Dirham</option>
         </select>
       </div>
-      <div class="field"><label>Revenu mensuel (€)</label><input type="number" id="s-income" placeholder="0.00" step="0.01"></div>
+      <div class="field">
+        <label>Revenu mensuel (€)</label>
+        <input type="number" id="s-income" placeholder="0.00" step="0.01">
+      </div>
     </div>
     <div id="tab-content-firebase" style="display:none">
-      <div class="field"><label>API Key</label><input type="text" id="s-apiKey" readonly style="font-family:'JetBrains Mono',monospace;font-size:11px;"></div>
-      <div class="field"><label>Project ID</label><input type="text" id="s-projectId" readonly style="font-family:'JetBrains Mono',monospace;font-size:11px;"></div>
-      <div class="field"><label>Auth Domain</label><input type="text" id="s-authDomain" readonly style="font-family:'JetBrains Mono',monospace;font-size:11px;"></div>
-      <div class="field"><label>App ID</label><input type="text" id="s-appId" readonly style="font-family:'JetBrains Mono',monospace;font-size:11px;"></div>
+      <div class="field"><label>API Key</label>
+        <input type="text" id="s-apiKey" readonly style="font-family:'JetBrains Mono',monospace;font-size:11px;"></div>
+      <div class="field"><label>Project ID</label>
+        <input type="text" id="s-projectId" readonly style="font-family:'JetBrains Mono',monospace;font-size:11px;"></div>
+      <div class="field"><label>Auth Domain</label>
+        <input type="text" id="s-authDomain" readonly style="font-family:'JetBrains Mono',monospace;font-size:11px;"></div>
+      <div class="field"><label>App ID</label>
+        <input type="text" id="s-appId" readonly style="font-family:'JetBrains Mono',monospace;font-size:11px;"></div>
     </div>
     <div class="modal-actions">
-      <button class="btn" onclick="closeModal('settings')">Annuler</button>
-      <button class="btn btn-primary" onclick="saveSettings()"><i class="ti ti-check"></i> Enregistrer</button>
+      <button class="btn" id="btn-cancelSettings">Annuler</button>
+      <button class="btn btn-primary" id="btn-saveSettings"><i class="ti ti-check"></i> Enregistrer</button>
     </div>
   </div>
 </div>
 
+<!-- SCRIPTS -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, collection, doc, getDocs, setDoc, deleteDoc, onSnapshot, query, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+<script type="module" src="budget.js"></script>
 
-const firebaseConfig = {
-  apiKey: "AIzaSyAflr5Pa_aujkFcSsJ43H8LiAw_vU51Ffw",
-  authDomain: "banquecyrille-a9055.firebaseapp.com",
-  projectId: "banquecyrille-a9055",
-  storageBucket: "banquecyrille-a9055.firebasestorage.app",
-  messagingSenderId: "1083349423488",
-  appId: "1:1083349423488:web:1b7df80c5affbadeaadd65"
-};
-
-// ─── TOAST ────────────────────────────────────────────────────────────────────
-window.toast = function(type, title, msg = '') {
-  const icons = { success: 'ti-circle-check', error: 'ti-alert-circle', info: 'ti-info-circle', warn: 'ti-alert-triangle' };
-  const container = document.getElementById('toast-container');
-  const el = document.createElement('div');
-  el.className = `toast ${type}`;
-  el.innerHTML = `
-    <i class="ti ${icons[type]||'ti-info-circle'} toast-icon"></i>
-    <div class="toast-body">
-      <div class="toast-title">${title}</div>
-      ${msg ? `<div class="toast-msg">${msg}</div>` : ''}
-    </div>
-    <button class="toast-close" onclick="dismissToast(this.parentElement)"><i class="ti ti-x"></i></button>
-  `;
-  container.appendChild(el);
-  setTimeout(() => dismissToast(el), 4500);
-};
-
-window.dismissToast = function(el) {
-  if (!el || !el.parentElement) return;
-  el.classList.add('hide');
-  setTimeout(() => el.remove(), 300);
-};
-
-// ─── STATE ────────────────────────────────────────────────────────────────────
-const EMOJIS = ['🏠','🛒','🚗','💊','🎉','👕','📱','💡','🏋️','🍕','✈️','📚','🐶','🌿','🔧','💼','🎓','🏥','🚌','🏦','🎮','💈','🧹','🌊','🎵','🍷','☕','🛁','🏡','📦'];
-const COLORS = ['#2C5F8A','#1D7A4F','#B03A2E','#8A6200','#6B3FA0','#1A7A7A','#C45C20','#4A7A1A','#A0356B','#2A6A8A','#555','#7A4A1A'];
-
-let settings = JSON.parse(localStorage.getItem('appSettings') || '{"name":"Mon Budget","currency":"EUR","income":0}');
-let db, auth, unsubTxns;
-let categories = [];
-let transactions = [];
-let selectedEmoji = '📦';
-let selectedColor = COLORS[0];
-let pieChart, barChart;
-
-const now = new Date();
-let curYear = now.getFullYear();
-let curMonth = now.getMonth();
-
-// ─── INIT ─────────────────────────────────────────────────────────────────────
-function init() {
-  try {
-    const app = initializeApp(FIREBASE_CONFIG);
-    db = getFirestore(app);
-    auth = getAuth(app);
-
-    onAuthStateChanged(auth, user => {
-      if (!user) {
-        window.location.href = 'login.html';
-        return;
-      }
-      document.getElementById('loadingScreen').style.display = 'none';
-      document.getElementById('navUserEmail').textContent = user.email;
-      toast('success', 'Connecté', `Bienvenue ${user.email} !`);
-      updateMonthLabel();
-      buildEmojiGrid();
-      buildColorGrid();
-      loadSettings();
-      listenCategories();
-    });
-  } catch(e) {
-    document.getElementById('loadingScreen').innerHTML =
-      `<p style="color:var(--red);font-size:13px;">Erreur Firebase : ${e.message}</p>`;
-  }
-}
-
-// ─── LOGOUT ───────────────────────────────────────────────────────────────────
-window.doLogout = async function() {
-  try {
-    await signOut(auth);
-    toast('info', 'Déconnecté', 'À bientôt !');
-    setTimeout(() => { window.location.href = 'login.html'; }, 700);
-  } catch(e) {
-    toast('error', 'Erreur', e.message);
-  }
-};
-
-function listenCategories() {
-  onSnapshot(collection(db, 'categories'), snap => {
-    categories = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    listenTransactions();
-    updateCatFilter();
-  });
-}
-
-function listenTransactions() {
-  if (unsubTxns) unsubTxns();
-  const monthKey = monthStr();
-  const q = query(collection(db, 'transactions'), where('monthKey', '==', monthKey));
-  unsubTxns = onSnapshot(q, snap => {
-    transactions = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    transactions.sort((a,b) => b.date.localeCompare(a.date));
-    render();
-  });
-  loadYearData();
-}
-
-// ─── RENDER ───────────────────────────────────────────────────────────────────
-function render() {
-  renderMetrics();
-  renderAlerts();
-  renderCats();
-  renderTxns();
-  renderPie();
-}
-
-function renderMetrics() {
-  const totalBudget = categories.reduce((s,c) => s + (c.budget||0), 0);
-  const totalSpent = sumDebits();
-  const left = totalBudget - totalSpent;
-  const pct = totalBudget ? Math.round(totalSpent/totalBudget*100) : 0;
-  document.getElementById('m-budget').textContent = fmt(totalBudget);
-  document.getElementById('m-budget-sub').textContent = `Revenus : ${fmt(settings.income||0)}`;
-  document.getElementById('m-spent').textContent = fmt(totalSpent);
-  document.getElementById('m-spent-sub').textContent = `${pct}% du budget prévu`;
-  const mLeft = document.getElementById('m-left');
-  mLeft.textContent = fmt(Math.abs(left));
-  mLeft.className = 'metric-value ' + (left >= 0 ? 'green' : 'red');
-  document.getElementById('m-left-sub').textContent = left >= 0 ? 'disponible' : 'dépassement';
-}
-
-function renderAlerts() {
-  const box = document.getElementById('alerts');
-  box.innerHTML = '';
-  categories.forEach(cat => {
-    if (!cat.budget) return;
-    const spent = spentByCat(cat.id);
-    const pct = spent / cat.budget * 100;
-    if (pct >= 100) {
-      box.innerHTML += `<div class="alert alert-over"><i class="ti ti-alert-circle"></i><strong>${cat.emoji||'📦'} ${cat.name}</strong> — budget dépassé de ${fmt(spent - cat.budget)}</div>`;
-    } else if (pct >= 80) {
-      box.innerHTML += `<div class="alert alert-warn"><i class="ti ti-alert-triangle"></i><strong>${cat.emoji||'📦'} ${cat.name}</strong> — ${Math.round(pct)}% du budget utilisé</div>`;
-    }
-  });
-}
-
-function renderCats() {
-  const el = document.getElementById('catList');
-  if (!categories.length) {
-    el.innerHTML = `<div class="empty"><i class="ti ti-layout-grid"></i><p>Aucune catégorie.<br>Ajoute-en une pour commencer.</p></div>`;
-    return;
-  }
-  el.innerHTML = categories.map(cat => {
-    const spent = spentByCat(cat.id);
-    const budget = cat.budget || 0;
-    const pct = budget ? Math.min(spent / budget * 100, 100) : 0;
-    const over = budget && spent > budget;
-    const warn = budget && spent / budget >= 0.8 && !over;
-    const fillClass = over ? 'over' : warn ? 'warn' : 'ok';
-    const badge = over ? `<span class="badge badge-over">Dépassé</span>` : warn ? `<span class="badge badge-warn">Attention</span>` : '';
-    return `<div class="cat-row">
-      <div class="cat-icon" style="background:${cat.color}22">${cat.emoji||'📦'}</div>
-      <div class="cat-info">
-        <div class="cat-name">${esc(cat.name)} ${badge}</div>
-        <div class="cat-amounts">${fmt(spent)} / ${budget ? fmt(budget) : 'pas de limite'}</div>
-        ${budget ? `<div class="progress-bar"><div class="progress-fill ${fillClass}" style="width:${pct}%"></div></div>` : ''}
-      </div>
-      <div class="cat-actions">
-        <button class="icon-btn" onclick="openEditBudget('${cat.id}')" title="Modifier le budget"><i class="ti ti-target"></i></button>
-        <button class="icon-btn" onclick="openEditCat('${cat.id}')" title="Modifier"><i class="ti ti-pencil"></i></button>
-        <button class="icon-btn danger" onclick="deleteCat('${cat.id}')" title="Supprimer"><i class="ti ti-trash"></i></button>
-      </div>
-    </div>`;
-  }).join('');
-}
-
-window.renderTxns = function() {
-  const el = document.getElementById('txnList');
-  const search = document.getElementById('searchInput').value.toLowerCase();
-  const catF = document.getElementById('catFilter').value;
-  let txns = transactions.filter(t => {
-    const matchSearch = !search || t.desc.toLowerCase().includes(search) || (t.note||'').toLowerCase().includes(search);
-    const matchCat = !catF || t.catId === catF;
-    return matchSearch && matchCat;
-  });
-  if (!txns.length) {
-    el.innerHTML = `<div class="empty"><i class="ti ti-inbox"></i><p>Aucune transaction ce mois.</p></div>`;
-    return;
-  }
-  el.innerHTML = txns.map(t => {
-    const cat = categories.find(c=>c.id===t.catId)||{emoji:'📦',color:'#888',name:'Autre'};
-    const d = t.date ? new Date(t.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'}) : '';
-    return `<div class="txn-row">
-      <div class="txn-icon" style="background:${cat.color}22">${cat.emoji||'📦'}</div>
-      <div class="txn-info">
-        <div class="txn-desc">${esc(t.desc)}</div>
-        <div class="txn-meta">${d} · ${esc(cat.name)}${t.note ? ' · '+esc(t.note) : ''}</div>
-      </div>
-      <div class="txn-amount ${t.type==='credit'?'credit':'debit'}">${t.type==='credit'?'+':'-'}${fmt(t.amount)}</div>
-      <button class="icon-btn" onclick="openEditTxn('${t.id}')" title="Modifier"><i class="ti ti-pencil"></i></button>
-      <button class="icon-btn danger" onclick="deleteTxn('${t.id}')" title="Supprimer"><i class="ti ti-trash"></i></button>
-    </div>`;
-  }).join('');
-};
-
-function renderPie() {
-  const ctx = document.getElementById('pieChart').getContext('2d');
-  const cats = categories.filter(c => spentByCat(c.id) > 0);
-  const data = cats.map(c => spentByCat(c.id));
-  const colors = cats.map(c => c.color||'#888');
-  const labels = cats.map(c => `${c.emoji||''} ${c.name}`);
-  if (pieChart) pieChart.destroy();
-  if (!cats.length) return;
-  pieChart = new Chart(ctx, {
-    type: 'doughnut',
-    data: { labels, datasets: [{ data, backgroundColor: colors.map(c=>c+'CC'), borderColor: colors, borderWidth: 1.5 }] },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { position: 'right', labels: { font: { size: 11, family: 'Inter' }, boxWidth: 12, padding: 10 } },
-        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${fmt(ctx.raw)}` } }
-      }
-    }
-  });
-}
-
-async function loadYearData() {
-  const months = Array.from({length:12},(_,i)=>`${curYear}-${String(i+1).padStart(2,'0')}`);
-  const snaps = await Promise.all(months.map(m => getDocs(query(collection(db,'transactions'), where('monthKey','==',m)))));
-  const totals = snaps.map(s => s.docs.map(d=>d.data()).filter(t=>t.type==='debit').reduce((sum,t)=>sum+t.amount,0));
-  renderBar(months, totals);
-}
-
-function renderBar(months, totals) {
-  const ctx = document.getElementById('barChart').getContext('2d');
-  const labels = months.map(m => new Date(m+'-01').toLocaleDateString('fr-FR',{month:'short'}));
-  const colors = months.map((_,i) => i===curMonth ? '#2C5F8A' : '#2C5F8ACC');
-  if (barChart) barChart.destroy();
-  barChart = new Chart(ctx, {
-    type: 'bar',
-    data: { labels, datasets: [{ label: 'Dépenses', data: totals, backgroundColor: colors, borderRadius: 5, borderSkipped: false }] },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: {
-        y: { ticks: { callback: v => fmt(v), font:{size:10} }, grid: { color: 'rgba(0,0,0,0.05)' } },
-        x: { ticks: { font:{size:11}, autoSkip: false }, grid: { display:false } }
-      }
-    }
-  });
-}
-
-// ─── CRUD ─────────────────────────────────────────────────────────────────────
-window.saveTxn = async function() {
-  const desc = v('txn-desc').trim();
-  const amount = parseFloat(v('txn-amount'))||0;
-  const date = v('txn-date');
-  const catId = v('txn-cat');
-  const type = v('txn-type');
-  const note = v('txn-note').trim();
-  if (!desc || !amount) {
-    toast('error', 'Champs manquants', 'Remplis la description et le montant.');
-    return;
-  }
-  const editId = v('txnEditId');
-  const isEdit = !!editId;
-  const id = editId || auto();
-  const monthKey = date ? date.substring(0,7) : monthStr();
-  try {
-    await setDoc(doc(db,'transactions',id), { desc, amount, date, catId, type, note, monthKey });
-    toast('success', isEdit ? 'Transaction modifiée' : 'Transaction ajoutée', `${desc} · ${fmt(amount)}`);
-    closeModal('addTxn');
-    clearTxnForm();
-  } catch(e) {
-    toast('error', 'Erreur', e.message);
-  }
-};
-
-window.deleteTxn = async function(id) {
-  const t = transactions.find(x=>x.id===id);
-  if (!confirm('Supprimer cette transaction ?')) return;
-  try {
-    await deleteDoc(doc(db,'transactions',id));
-    toast('info', 'Transaction supprimée', t ? t.desc : '');
-  } catch(e) {
-    toast('error', 'Erreur', e.message);
-  }
-};
-
-window.openEditTxn = function(id) {
-  const t = transactions.find(x=>x.id===id);
-  if (!t) return;
-  document.getElementById('txnModalTitle').textContent = 'Modifier la transaction';
-  document.getElementById('txnEditId').value = id;
-  set('txn-desc', t.desc); set('txn-amount', t.amount);
-  set('txn-date', t.date||''); set('txn-type', t.type); set('txn-note', t.note||'');
-  updateCatSelect();
-  document.getElementById('txn-cat').value = t.catId||'';
-  openModal('addTxn');
-};
-
-window.saveCat = async function() {
-  const name = v('cat-name').trim();
-  const budget = parseFloat(v('cat-budget'))||0;
-  if (!name) {
-    toast('error', 'Nom manquant', 'Donne un nom à la catégorie.');
-    return;
-  }
-  const editId = v('catEditId');
-  const isEdit = !!editId;
-  const id = editId || auto();
-  try {
-    await setDoc(doc(db,'categories',id), { name, emoji: selectedEmoji, color: selectedColor, budget });
-    toast('success', isEdit ? 'Catégorie modifiée' : 'Catégorie créée', `${selectedEmoji} ${name}`);
-    closeModal('addCat');
-    clearCatForm();
-  } catch(e) {
-    toast('error', 'Erreur', e.message);
-  }
-};
-
-window.deleteCat = async function(id) {
-  const c = categories.find(x=>x.id===id);
-  if (!confirm('Supprimer cette catégorie ? Les transactions liées resteront.')) return;
-  try {
-    await deleteDoc(doc(db,'categories',id));
-    toast('info', 'Catégorie supprimée', c ? `${c.emoji||''} ${c.name}` : '');
-  } catch(e) {
-    toast('error', 'Erreur', e.message);
-  }
-};
-
-window.openEditCat = function(id) {
-  const c = categories.find(x=>x.id===id);
-  if (!c) return;
-  document.getElementById('catModalTitle').textContent = 'Modifier la catégorie';
-  document.getElementById('catEditId').value = id;
-  set('cat-name', c.name); set('cat-budget', c.budget||'');
-  selectedEmoji = c.emoji||'📦'; selectedColor = c.color||COLORS[0];
-  buildEmojiGrid(); buildColorGrid();
-  openModal('addCat');
-};
-
-window.openEditBudget = function(id) {
-  const c = categories.find(x=>x.id===id);
-  if (!c) return;
-  document.getElementById('editBudgetCatId').value = id;
-  document.getElementById('editBudgetCatName').textContent = `${c.emoji||''} ${c.name}`;
-  set('editBudgetVal', c.budget||'');
-  openModal('editBudget');
-};
-
-window.saveBudget = async function() {
-  const id = v('editBudgetCatId');
-  const cat = categories.find(c=>c.id===id);
-  if (!cat) return;
-  try {
-    await setDoc(doc(db,'categories',id), { ...cat, budget: parseFloat(v('editBudgetVal'))||0 });
-    toast('success', 'Budget mis à jour', `${cat.emoji||''} ${cat.name}`);
-    closeModal('editBudget');
-  } catch(e) {
-    toast('error', 'Erreur', e.message);
-  }
-};
-
-// ─── SETTINGS ─────────────────────────────────────────────────────────────────
-function loadSettings() {
-  set('s-name', settings.name||'Mon Budget');
-  set('s-currency', settings.currency||'EUR');
-  set('s-income', settings.income||'');
-  set('s-apiKey', FIREBASE_CONFIG.apiKey);
-  set('s-projectId', FIREBASE_CONFIG.projectId);
-  set('s-authDomain', FIREBASE_CONFIG.authDomain);
-  set('s-appId', FIREBASE_CONFIG.appId);
-}
-
-window.saveSettings = function() {
-  settings = { name: v('s-name'), currency: v('s-currency'), income: parseFloat(v('s-income'))||0 };
-  localStorage.setItem('appSettings', JSON.stringify(settings));
-  toast('success', 'Paramètres sauvegardés');
-  closeModal('settings');
-  renderMetrics();
-};
-
-// ─── UI ───────────────────────────────────────────────────────────────────────
-window.openModal = function(name) {
-  if (name === 'addTxn') {
-    document.getElementById('txnModalTitle').textContent = 'Nouvelle transaction';
-    document.getElementById('txnEditId').value = '';
-    set('txn-date', new Date().toISOString().split('T')[0]);
-    updateCatSelect();
-  }
-  if (name === 'settings') loadSettings();
-  document.getElementById('modal-'+name).classList.add('open');
-};
-window.closeModal = function(name) { document.getElementById('modal-'+name).classList.remove('open'); };
-document.querySelectorAll('.modal-overlay').forEach(m => m.addEventListener('click', e => { if(e.target===m) m.classList.remove('open'); }));
-
-window.changeMonth = function(d) {
-  curMonth += d;
-  if (curMonth > 11) { curMonth = 0; curYear++; }
-  if (curMonth < 0) { curMonth = 11; curYear--; }
-  updateMonthLabel();
-  listenTransactions();
-  toast('info', 'Navigation', `${new Date(curYear, curMonth, 1).toLocaleDateString('fr-FR',{month:'long',year:'numeric'})}`);
-};
-
-function updateMonthLabel() {
-  const label = new Date(curYear, curMonth, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
-  document.getElementById('monthLabel').textContent = label.charAt(0).toUpperCase() + label.slice(1);
-}
-
-function updateCatSelect() {
-  document.getElementById('txn-cat').innerHTML = categories.map(c => `<option value="${c.id}">${c.emoji||'📦'} ${esc(c.name)}</option>`).join('');
-}
-
-function updateCatFilter() {
-  document.getElementById('catFilter').innerHTML = '<option value="">Toutes les cat.</option>' + categories.map(c => `<option value="${c.id}">${c.emoji||'📦'} ${esc(c.name)}</option>`).join('');
-}
-
-function buildEmojiGrid() {
-  document.getElementById('emojiGrid').innerHTML = EMOJIS.map(e =>
-    `<div class="emoji-opt ${e===selectedEmoji?'selected':''}" onclick="selectEmoji('${e}')">${e}</div>`).join('');
-}
-window.selectEmoji = function(e) { selectedEmoji = e; buildEmojiGrid(); };
-
-function buildColorGrid() {
-  document.getElementById('colorGrid').innerHTML = COLORS.map(c =>
-    `<div class="color-swatch ${c===selectedColor?'selected':''}" style="background:${c}" onclick="selectColor('${c}')" title="${c}"></div>`).join('');
-}
-window.selectColor = function(c) { selectedColor = c; buildColorGrid(); };
-
-window.switchTab = function(tab) {
-  ['general','firebase'].forEach(t => {
-    document.getElementById('tab-content-'+t).style.display = t===tab?'':'none';
-    document.getElementById('tab-'+t).classList.toggle('active', t===tab);
-  });
-};
-
-function clearTxnForm() { ['txn-desc','txn-amount','txn-note'].forEach(id => set(id,'')); }
-function clearCatForm() {
-  set('cat-name',''); set('cat-budget',''); document.getElementById('catEditId').value='';
-  selectedEmoji = '📦'; selectedColor = COLORS[0];
-  buildEmojiGrid(); buildColorGrid();
-}
-
-// ─── UTILS ────────────────────────────────────────────────────────────────────
-function monthStr() { return `${curYear}-${String(curMonth+1).padStart(2,'0')}`; }
-function spentByCat(catId) { return transactions.filter(t=>t.catId===catId&&t.type==='debit').reduce((s,t)=>s+t.amount,0); }
-function sumDebits() { return transactions.filter(t=>t.type==='debit').reduce((s,t)=>s+t.amount,0); }
-function fmt(n) {
-  const sym = {EUR:'€',USD:'$',CHF:'CHF ',GBP:'£',MAD:'MAD '}[settings.currency||'EUR']||'€';
-  const after = ['EUR','GBP','USD'].includes(settings.currency);
-  const s = Math.abs(n).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2});
-  return after ? `${s} ${sym}`.trim() : `${sym}${s}`;
-}
-function auto() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
-function v(id) { return document.getElementById(id)?.value || ''; }
-function set(id, val) { const el=document.getElementById(id); if(el) el.value=val; }
-function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-
-init();
-</script>
 </body>
 </html>
