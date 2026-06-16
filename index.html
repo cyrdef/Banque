@@ -29,10 +29,54 @@
     --radius: 10px;
     --radius-lg: 16px;
     --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-lg: 0 8px 32px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.06);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; min-height: 100vh; }
-  
+
+  /* ── TOAST ──────────────────────────────────────────────────── */
+  #toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: none;
+  }
+  .toast {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    box-shadow: var(--shadow-lg);
+    min-width: 260px;
+    max-width: 340px;
+    pointer-events: auto;
+    animation: toastIn 0.25s ease;
+    transition: opacity 0.3s, transform 0.3s;
+  }
+  .toast.hide { opacity: 0; transform: translateX(20px); }
+  .toast-icon { font-size: 17px; flex-shrink: 0; margin-top: 1px; }
+  .toast-body { flex: 1; }
+  .toast-title { font-size: 13px; font-weight: 600; color: var(--text); }
+  .toast-msg { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .toast-close { background: none; border: none; cursor: pointer; color: var(--text-faint); font-size: 14px; padding: 0; flex-shrink: 0; }
+  .toast-close:hover { color: var(--text); }
+  .toast.success .toast-icon { color: var(--green); }
+  .toast.error .toast-icon { color: var(--red); }
+  .toast.info .toast-icon { color: var(--accent); }
+  .toast.warn .toast-icon { color: var(--amber); }
+  .toast.success { border-left: 3px solid var(--green); }
+  .toast.error { border-left: 3px solid var(--red); }
+  .toast.info { border-left: 3px solid var(--accent); }
+  .toast.warn { border-left: 3px solid var(--amber); }
+  @keyframes toastIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: none; } }
+
   nav { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 24px; display: flex; align-items: center; justify-content: space-between; height: 56px; position: sticky; top: 0; z-index: 50; }
   .nav-brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 15px; color: var(--text); }
   .nav-brand i { color: var(--accent); font-size: 22px; }
@@ -41,6 +85,9 @@
   .month-nav button { background: none; border: 1px solid var(--border); border-radius: 8px; width: 32px; height: 32px; cursor: pointer; color: var(--text-muted); display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
   .month-nav button:hover { background: var(--surface2); border-color: var(--border-strong); }
   #monthLabel { font-weight: 500; font-size: 14px; min-width: 130px; text-align: center; }
+
+  .nav-user { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-muted); }
+  .nav-user i { font-size: 16px; }
 
   .container { max-width: 1100px; margin: 0 auto; padding: 24px 20px; }
   .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
@@ -144,6 +191,7 @@
     nav { padding: 0 16px; }
     .container { padding: 16px; }
     #monthLabel { min-width: 100px; font-size: 13px; }
+    .nav-user-email { display: none; }
   }
   @media (max-width: 480px) {
     .month-nav button { width: 28px; height: 28px; }
@@ -152,9 +200,11 @@
 </head>
 <body>
 
+<div id="toast-container"></div>
+
 <div id="loadingScreen">
   <div class="spinner"></div>
-  <p style="color:var(--text-muted);font-size:13px;">Connexion à Firebase…</p>
+  <p style="color:var(--text-muted);font-size:13px;">Vérification de l'accès…</p>
 </div>
 
 <nav>
@@ -170,6 +220,13 @@
     </div>
     <button class="btn btn-sm" onclick="openModal('addTxn')"><i class="ti ti-plus"></i> Dépense</button>
     <button class="btn btn-sm btn-ghost" onclick="openModal('settings')" aria-label="Paramètres"><i class="ti ti-settings"></i></button>
+    <div class="nav-user">
+      <i class="ti ti-user-circle"></i>
+      <span class="nav-user-email" id="navUserEmail" style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+      <button class="icon-btn" onclick="doLogout()" title="Se déconnecter" style="color:var(--text-muted);">
+        <i class="ti ti-logout"></i>
+      </button>
+    </div>
   </div>
 </nav>
 
@@ -275,22 +332,77 @@
   </div>
 </div>
 
+<!-- MODAL: Paramètres -->
+<div class="modal-overlay" id="modal-settings">
+  <div class="modal">
+    <div class="modal-title"><i class="ti ti-settings" style="color:var(--accent)"></i> Paramètres</div>
+    <div class="tabs">
+      <button class="tab active" id="tab-general" onclick="switchTab('general')"><i class="ti ti-adjustments"></i> Général</button>
+      <button class="tab" id="tab-firebase" onclick="switchTab('firebase')"><i class="ti ti-database"></i> Firebase</button>
+    </div>
+    <div id="tab-content-general">
+      <div class="field"><label>Nom de l'app</label><input type="text" id="s-name"></div>
+      <div class="field"><label>Devise</label>
+        <select id="s-currency">
+          <option value="EUR">€ Euro</option>
+          <option value="USD">$ Dollar US</option>
+          <option value="GBP">£ Livre sterling</option>
+          <option value="CHF">CHF Franc suisse</option>
+          <option value="MAD">MAD Dirham</option>
+        </select>
+      </div>
+      <div class="field"><label>Revenu mensuel (€)</label><input type="number" id="s-income" placeholder="0.00" step="0.01"></div>
+    </div>
+    <div id="tab-content-firebase" style="display:none">
+      <div class="field"><label>API Key</label><input type="text" id="s-apiKey" readonly style="font-family:'JetBrains Mono',monospace;font-size:11px;"></div>
+      <div class="field"><label>Project ID</label><input type="text" id="s-projectId" readonly style="font-family:'JetBrains Mono',monospace;font-size:11px;"></div>
+      <div class="field"><label>Auth Domain</label><input type="text" id="s-authDomain" readonly style="font-family:'JetBrains Mono',monospace;font-size:11px;"></div>
+      <div class="field"><label>App ID</label><input type="text" id="s-appId" readonly style="font-family:'JetBrains Mono',monospace;font-size:11px;"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('settings')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveSettings()"><i class="ti ti-check"></i> Enregistrer</button>
+    </div>
+  </div>
+</div>
 
-
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getFirestore, collection, doc, getDocs, setDoc, deleteDoc, onSnapshot, query, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDA8VWcVjmx7wT0dbTQndETGCqxuko_W24",
+  authDomain: "suivicomptes.firebaseapp.com",
+  projectId: "suivicomptes",
+  storageBucket: "suivicomptes.firebasestorage.app",
+  messagingSenderId: "775505676098",
+  appId: "1:775505676098:web:820123c3c4f38b0614aadb"
+};
 
+// ─── TOAST ────────────────────────────────────────────────────────────────────
+window.toast = function(type, title, msg = '') {
+  const icons = { success: 'ti-circle-check', error: 'ti-alert-circle', info: 'ti-info-circle', warn: 'ti-alert-triangle' };
+  const container = document.getElementById('toast-container');
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = `
+    <i class="ti ${icons[type]||'ti-info-circle'} toast-icon"></i>
+    <div class="toast-body">
+      <div class="toast-title">${title}</div>
+      ${msg ? `<div class="toast-msg">${msg}</div>` : ''}
+    </div>
+    <button class="toast-close" onclick="dismissToast(this.parentElement)"><i class="ti ti-x"></i></button>
+  `;
+  container.appendChild(el);
+  setTimeout(() => dismissToast(el), 4500);
+};
 
-// ─── CONFIG FIREBASE ──────────────────────────────────────────────────────────
-const firebaseConfig = {
-  apiKey: "AIzaSyAflr5Pa_aujkFcSsJ43H8LiAw_vU51Ffw",
-  authDomain: "banquecyrille-a9055.firebaseapp.com",
-  projectId: "banquecyrille-a9055",
-  storageBucket: "banquecyrille-a9055.firebasestorage.app",
-  messagingSenderId: "1083349423488",
-  appId: "1:1083349423488:web:1b7df80c5affbadeaadd65"
+window.dismissToast = function(el) {
+  if (!el || !el.parentElement) return;
+  el.classList.add('hide');
+  setTimeout(() => el.remove(), 300);
 };
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
@@ -298,7 +410,7 @@ const EMOJIS = ['🏠','🛒','🚗','💊','🎉','👕','📱','💡','🏋️
 const COLORS = ['#2C5F8A','#1D7A4F','#B03A2E','#8A6200','#6B3FA0','#1A7A7A','#C45C20','#4A7A1A','#A0356B','#2A6A8A','#555','#7A4A1A'];
 
 let settings = JSON.parse(localStorage.getItem('appSettings') || '{"name":"Mon Budget","currency":"EUR","income":0}');
-let db, unsubTxns;
+let db, auth, unsubTxns;
 let categories = [];
 let transactions = [];
 let selectedEmoji = '📦';
@@ -314,17 +426,38 @@ function init() {
   try {
     const app = initializeApp(FIREBASE_CONFIG);
     db = getFirestore(app);
-    document.getElementById('loadingScreen').style.display = 'none';
-    updateMonthLabel();
-    buildEmojiGrid();
-    buildColorGrid();
-    loadSettings();
-    listenCategories();
+    auth = getAuth(app);
+
+    onAuthStateChanged(auth, user => {
+      if (!user) {
+        window.location.href = 'login.html';
+        return;
+      }
+      document.getElementById('loadingScreen').style.display = 'none';
+      document.getElementById('navUserEmail').textContent = user.email;
+      toast('success', 'Connecté', `Bienvenue ${user.email} !`);
+      updateMonthLabel();
+      buildEmojiGrid();
+      buildColorGrid();
+      loadSettings();
+      listenCategories();
+    });
   } catch(e) {
     document.getElementById('loadingScreen').innerHTML =
       `<p style="color:var(--red);font-size:13px;">Erreur Firebase : ${e.message}</p>`;
   }
 }
+
+// ─── LOGOUT ───────────────────────────────────────────────────────────────────
+window.doLogout = async function() {
+  try {
+    await signOut(auth);
+    toast('info', 'Déconnecté', 'À bientôt !');
+    setTimeout(() => { window.location.href = 'login.html'; }, 700);
+  } catch(e) {
+    toast('error', 'Erreur', e.message);
+  }
+};
 
 function listenCategories() {
   onSnapshot(collection(db, 'categories'), snap => {
@@ -498,18 +631,33 @@ window.saveTxn = async function() {
   const catId = v('txn-cat');
   const type = v('txn-type');
   const note = v('txn-note').trim();
-  if (!desc || !amount) { alert('Remplis la description et le montant.'); return; }
+  if (!desc || !amount) {
+    toast('error', 'Champs manquants', 'Remplis la description et le montant.');
+    return;
+  }
   const editId = v('txnEditId');
+  const isEdit = !!editId;
   const id = editId || auto();
   const monthKey = date ? date.substring(0,7) : monthStr();
-  await setDoc(doc(db,'transactions',id), { desc, amount, date, catId, type, note, monthKey });
-  closeModal('addTxn');
-  clearTxnForm();
+  try {
+    await setDoc(doc(db,'transactions',id), { desc, amount, date, catId, type, note, monthKey });
+    toast('success', isEdit ? 'Transaction modifiée' : 'Transaction ajoutée', `${desc} · ${fmt(amount)}`);
+    closeModal('addTxn');
+    clearTxnForm();
+  } catch(e) {
+    toast('error', 'Erreur', e.message);
+  }
 };
 
 window.deleteTxn = async function(id) {
+  const t = transactions.find(x=>x.id===id);
   if (!confirm('Supprimer cette transaction ?')) return;
-  await deleteDoc(doc(db,'transactions',id));
+  try {
+    await deleteDoc(doc(db,'transactions',id));
+    toast('info', 'Transaction supprimée', t ? t.desc : '');
+  } catch(e) {
+    toast('error', 'Erreur', e.message);
+  }
 };
 
 window.openEditTxn = function(id) {
@@ -527,17 +675,32 @@ window.openEditTxn = function(id) {
 window.saveCat = async function() {
   const name = v('cat-name').trim();
   const budget = parseFloat(v('cat-budget'))||0;
-  if (!name) { alert('Donne un nom à la catégorie.'); return; }
+  if (!name) {
+    toast('error', 'Nom manquant', 'Donne un nom à la catégorie.');
+    return;
+  }
   const editId = v('catEditId');
+  const isEdit = !!editId;
   const id = editId || auto();
-  await setDoc(doc(db,'categories',id), { name, emoji: selectedEmoji, color: selectedColor, budget });
-  closeModal('addCat');
-  clearCatForm();
+  try {
+    await setDoc(doc(db,'categories',id), { name, emoji: selectedEmoji, color: selectedColor, budget });
+    toast('success', isEdit ? 'Catégorie modifiée' : 'Catégorie créée', `${selectedEmoji} ${name}`);
+    closeModal('addCat');
+    clearCatForm();
+  } catch(e) {
+    toast('error', 'Erreur', e.message);
+  }
 };
 
 window.deleteCat = async function(id) {
+  const c = categories.find(x=>x.id===id);
   if (!confirm('Supprimer cette catégorie ? Les transactions liées resteront.')) return;
-  await deleteDoc(doc(db,'categories',id));
+  try {
+    await deleteDoc(doc(db,'categories',id));
+    toast('info', 'Catégorie supprimée', c ? `${c.emoji||''} ${c.name}` : '');
+  } catch(e) {
+    toast('error', 'Erreur', e.message);
+  }
 };
 
 window.openEditCat = function(id) {
@@ -564,8 +727,13 @@ window.saveBudget = async function() {
   const id = v('editBudgetCatId');
   const cat = categories.find(c=>c.id===id);
   if (!cat) return;
-  await setDoc(doc(db,'categories',id), { ...cat, budget: parseFloat(v('editBudgetVal'))||0 });
-  closeModal('editBudget');
+  try {
+    await setDoc(doc(db,'categories',id), { ...cat, budget: parseFloat(v('editBudgetVal'))||0 });
+    toast('success', 'Budget mis à jour', `${cat.emoji||''} ${cat.name}`);
+    closeModal('editBudget');
+  } catch(e) {
+    toast('error', 'Erreur', e.message);
+  }
 };
 
 // ─── SETTINGS ─────────────────────────────────────────────────────────────────
@@ -577,13 +745,12 @@ function loadSettings() {
   set('s-projectId', FIREBASE_CONFIG.projectId);
   set('s-authDomain', FIREBASE_CONFIG.authDomain);
   set('s-appId', FIREBASE_CONFIG.appId);
-  set('s-storageBucket', FIREBASE_CONFIG.storageBucket);
-  set('s-messagingSenderId', FIREBASE_CONFIG.messagingSenderId);
 }
 
 window.saveSettings = function() {
   settings = { name: v('s-name'), currency: v('s-currency'), income: parseFloat(v('s-income'))||0 };
   localStorage.setItem('appSettings', JSON.stringify(settings));
+  toast('success', 'Paramètres sauvegardés');
   closeModal('settings');
   renderMetrics();
 };
@@ -608,6 +775,7 @@ window.changeMonth = function(d) {
   if (curMonth < 0) { curMonth = 11; curYear--; }
   updateMonthLabel();
   listenTransactions();
+  toast('info', 'Navigation', `${new Date(curYear, curMonth, 1).toLocaleDateString('fr-FR',{month:'long',year:'numeric'})}`);
 };
 
 function updateMonthLabel() {
