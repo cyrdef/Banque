@@ -3,8 +3,8 @@ import { initializeApp }    from "https://www.gstatic.com/firebasejs/10.12.0/fir
 import { getAuth, onAuthStateChanged, signOut }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {
-  getFirestore, collection, doc, getDocs,
-  setDoc, deleteDoc, onSnapshot, query, where
+  getFirestore, collection, doc, getDoc, getDocs,
+  setDoc, updateDoc, deleteDoc, onSnapshot, query, where
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
@@ -31,15 +31,18 @@ const RECUR_FREQ_LABELS = {
   yearly:     'Chaque année'
 };
 
+const UNCATEGORIZED_ID = '__uncategorized__';
+
 // ─── STATE ────────────────────────────────────────────────────────────────────
 let settings    = JSON.parse(localStorage.getItem('appSettings') || '{"name":"Mon Budget","currency":"EUR","income":0}');
-let db, auth, unsubTxns, unsubRecurrents;
+let db, auth, uid, unsubTxns, unsubRecurrents;
 let categories   = [];
 let transactions = [];
 let recurrents   = [];
 let selectedEmoji = '📦';
 let selectedColor = COLORS[0];
 let pieChart, barChart;
+let yearCache = { year: null, totals: null };
 
 const now = new Date();
 let curYear  = now.getFullYear();
@@ -77,8 +80,10 @@ function init() {
     db   = getFirestore(app);
     auth = getAuth(app);
 
-    onAuthStateChanged(auth, user => {
+    onAuthStateChanged(auth, async user => {
       if (!user) { window.location.href = 'login.html'; return; }
+      uid = user.uid;
+      await loadSettings();
       document.getElementById('loadingScreen').style.display = 'none';
       document.getElementById('navUserEmail').textContent = user.email;
       toast('success', 'Connecté', `Bienvenue ${user.email} !`);
@@ -105,8 +110,11 @@ async function doLogout() {
 }
 
 // ─── FIRESTORE LISTENERS ──────────────────────────────────────────────────────
+// Toutes les requêtes sont désormais filtrées par uid pour empêcher un compte
+// de voir/modifier les données d'un autre compte (faille de sécurité corrigée).
 function listenCategories() {
-  onSnapshot(collection(db, 'categories'), snap => {
+  const q = query(collection(db, 'categories'), where('uid', '==', uid));
+  onSnapshot(q, snap => {
     categories = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     listenTransactions();
     updateCatFilter();
@@ -115,19 +123,24 @@ function listenCategories() {
 
 function listenTransactions() {
   if (unsubTxns) unsubTxns();
-  const q = query(collection(db, 'transactions'), where('monthKey', '==', monthStr()));
+  const q = query(
+    collection(db, 'transactions'),
+    where('uid', '==', uid),
+    where('monthKey', '==', monthStr())
+  );
   unsubTxns = onSnapshot(q, snap => {
     transactions = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     transactions.sort((a, b) => b.date.localeCompare(a.date));
     render();
+    refreshCurrentMonthInYearCache();
   });
-  loadYearData();
 }
 
 // ─── RÉCURRENTS : listener + injection ───────────────────────────────────────
 function listenRecurrents() {
   if (unsubRecurrents) unsubRecurrents();
-  unsubRecurrents = onSnapshot(collection(db, 'recurrents'), snap => {
+  const q = query(collection(db, 'recurrents'), where('uid', '==', uid));
+  unsubRecurrents = onSnapshot(q, snap => {
     recurrents = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     renderRecurrentsList();
     injectRecurrents();
@@ -140,7 +153,7 @@ function listenRecurrents() {
  */
 async function injectRecurrents() {
   if (!recurrents.length) return;
-  const key = monthStr(); // ex: "2025-06"
+  const key = monthStr(); // ex: "2026-06"
   const [y, m] = key.split('-').map(Number);
 
   for (const r of recurrents) {
@@ -155,6 +168,7 @@ async function injectRecurrents() {
     const id = 'rec_' + r.id + '_' + key.replace('-', '');
     try {
       await setDoc(doc(db, 'transactions', id), {
+        uid,
         desc:        r.desc,
         amount:      r.amount,
         date:        dateStr,
@@ -168,6 +182,29 @@ async function injectRecurrents() {
     } catch (e) {
       console.warn('Injection récurrent échouée :', r.desc, e.message);
     }
+  }
+}
+
+/**
+ * Si on modifie un récurrent, met à jour la transaction déjà injectée pour le
+ * mois courant — sauf si l'utilisateur l'a modifiée manuellement entre-temps
+ * (champ `modified`), pour ne pas écraser une correction volontaire.
+ */
+async function syncRecurrentToCurrentMonthTxn(r) {
+  const key = monthStr();
+  const existing = transactions.find(t => t.recurrentId === r.id && t.monthKey === key);
+  if (!existing || existing.modified) return;
+  try {
+    await updateDoc(doc(db, 'transactions', existing.id), {
+      desc:   r.desc,
+      amount: r.amount,
+      catId:  r.catId,
+      type:   r.type || 'debit',
+      note:   r.note || '',
+      date:   `${key}-${String(r.dayOfMonth || 1).padStart(2, '0')}`
+    });
+  } catch (e) {
+    console.warn('Sync récurrent → transaction échouée :', e.message);
   }
 }
 
@@ -219,22 +256,23 @@ function renderAlerts() {
     const pct   = spent / cat.budget * 100;
     if (pct >= 100) {
       box.innerHTML += `<div class="alert alert-over"><i class="ti ti-alert-circle"></i>
-        <strong>${cat.emoji || '📦'} ${cat.name}</strong> — budget dépassé de ${fmt(spent - cat.budget)}</div>`;
+        <strong>${cat.emoji || '📦'} ${esc(cat.name)}</strong> — budget dépassé de ${fmt(spent - cat.budget)}</div>`;
     } else if (pct >= 80) {
       box.innerHTML += `<div class="alert alert-warn"><i class="ti ti-alert-triangle"></i>
-        <strong>${cat.emoji || '📦'} ${cat.name}</strong> — ${Math.round(pct)}% du budget utilisé</div>`;
+        <strong>${cat.emoji || '📦'} ${esc(cat.name)}</strong> — ${Math.round(pct)}% du budget utilisé</div>`;
     }
   });
 }
 
 function renderCats() {
   const el = document.getElementById('catList');
-  if (!categories.length) {
+  const uncat = uncategorizedTotal();
+  if (!categories.length && !uncat) {
     el.innerHTML = `<div class="empty"><i class="ti ti-layout-grid"></i>
       <p>Aucune catégorie.<br>Ajoute-en une pour commencer.</p></div>`;
     return;
   }
-  el.innerHTML = categories.map(cat => {
+  let html = categories.map(cat => {
     const spent = spentByCat(cat.id);
     const budget = cat.budget || 0;
     const pct    = budget ? Math.min(spent / budget * 100, 100) : 0;
@@ -259,6 +297,19 @@ function renderCats() {
       </div>
     </div>`;
   }).join('');
+
+  // Catégorie virtuelle "Non classé" : regroupe les transactions dont la
+  // catégorie d'origine a été supprimée, pour que les totaux restent cohérents.
+  if (uncat > 0) {
+    html += `<div class="cat-row">
+      <div class="cat-icon" style="background:#88888822">❓</div>
+      <div class="cat-info">
+        <div class="cat-name">Non classé <span class="badge badge-warn">Catégorie supprimée</span></div>
+        <div class="cat-amounts">${fmt(uncat)} · à réattribuer via la transaction</div>
+      </div>
+    </div>`;
+  }
+  el.innerHTML = html;
 }
 
 function renderTxns() {
@@ -275,7 +326,7 @@ function renderTxns() {
     return;
   }
   el.innerHTML = txns.map(t => {
-    const cat = categories.find(c => c.id === t.catId) || { emoji: '📦', color: '#888', name: 'Autre' };
+    const cat = categories.find(c => c.id === t.catId) || { emoji: '❓', color: '#888', name: 'Non classé' };
     const d   = t.date ? new Date(t.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }) : '';
     const recurBadge = t.auto
       ? `<span class="badge badge-recur" title="Transaction récurrente"><i class="ti ti-repeat"></i> Auto</span>`
@@ -335,7 +386,7 @@ async function saveRecurrent() {
   const catId      = v('recur-cat');
   const type       = v('recur-type');
   const frequency  = v('recur-frequency');
-  const dayOfMonth = parseInt(v('recur-day')) || 1;
+  const dayOfMonth = Math.min(Math.max(parseInt(v('recur-day')) || 1, 1), 28);
   const note       = v('recur-note').trim();
 
   if (!desc || !amount) {
@@ -350,13 +401,16 @@ async function saveRecurrent() {
   // On retient le mois de départ pour calculer les fréquences bi-mensuel/trimestriel/annuel
   const startMonth = parseInt(v('recur-startMonth')) || (curMonth + 1);
 
+  const data = { uid, desc, amount, catId, type, frequency, dayOfMonth, note, startMonth };
+
   try {
-    await setDoc(doc(db, 'recurrents', id), {
-      desc, amount, catId, type, frequency, dayOfMonth, note, startMonth
-    });
+    await setDoc(doc(db, 'recurrents', id), data);
     toast('success', isEdit ? 'Récurrent modifié' : 'Récurrent ajouté', `${desc} · ${fmt(amount)}`);
-    closeModal('recurrents');
-    // Force injection immédiate pour le mois courant
+    closeModal('addRecurrent');
+    // Si on vient de modifier un récurrent, on répercute le changement sur la
+    // transaction déjà injectée ce mois-ci (sauf si elle a été modifiée à la main).
+    if (isEdit) await syncRecurrentToCurrentMonthTxn({ id, ...data });
+    // Force injection immédiate pour le mois courant si elle n'existe pas encore
     await injectRecurrents();
   } catch (e) {
     toast('error', 'Erreur', e.message);
@@ -421,8 +475,18 @@ async function saveTxn() {
   const isEdit   = !!editId;
   const id       = editId || auto();
   const monthKey = date ? date.substring(0, 7) : monthStr();
+  const existing = isEdit ? transactions.find(t => t.id === editId) : null;
   try {
-    await setDoc(doc(db, 'transactions', id), { desc, amount, date, catId, type, note, monthKey });
+    const data = { uid, desc, amount, date, catId, type, note, monthKey };
+    // Si on édite à la main une transaction injectée automatiquement, on la
+    // marque comme "modified" pour qu'une future modification du récurrent
+    // associé ne vienne pas écraser cette correction volontaire.
+    if (existing && existing.auto) {
+      data.auto = true;
+      data.recurrentId = existing.recurrentId;
+      data.modified = true;
+    }
+    await setDoc(doc(db, 'transactions', id), data);
     toast('success', isEdit ? 'Transaction modifiée' : 'Transaction ajoutée', `${desc} · ${fmt(amount)}`);
     closeModal('addTxn');
     clearTxnForm();
@@ -459,7 +523,7 @@ async function saveCat() {
   const isEdit = !!editId;
   const id     = editId || auto();
   try {
-    await setDoc(doc(db, 'categories', id), { name, emoji: selectedEmoji, color: selectedColor, budget });
+    await setDoc(doc(db, 'categories', id), { uid, name, emoji: selectedEmoji, color: selectedColor, budget });
     toast('success', isEdit ? 'Catégorie modifiée' : 'Catégorie créée', `${selectedEmoji} ${name}`);
     closeModal('addCat');
     clearCatForm();
@@ -468,7 +532,7 @@ async function saveCat() {
 
 async function deleteCat(id) {
   const c = categories.find(x => x.id === id);
-  if (!confirm('Supprimer cette catégorie ? Les transactions liées resteront.')) return;
+  if (!confirm('Supprimer cette catégorie ?\nLes transactions liées passeront en "Non classé" (elles ne seront pas supprimées).')) return;
   try {
     await deleteDoc(doc(db, 'categories', id));
     toast('info', 'Catégorie supprimée', c ? `${c.emoji || ''} ${c.name}` : '');
@@ -500,13 +564,33 @@ async function saveBudget() {
   const cat = categories.find(c => c.id === id);
   if (!cat) return;
   try {
-    await setDoc(doc(db, 'categories', id), { ...cat, budget: parseFloat(v('editBudgetVal')) || 0 });
+    // Mise à jour partielle (updateDoc) plutôt que de réécrire tout le document :
+    // évite d'écraser un changement concurrent sur un autre champ de la catégorie.
+    await updateDoc(doc(db, 'categories', id), { budget: parseFloat(v('editBudgetVal')) || 0 });
     toast('success', 'Budget mis à jour', `${cat.emoji || ''} ${cat.name}`);
     closeModal('editBudget');
   } catch (e) { toast('error', 'Erreur', e.message); }
 }
 
 // ─── SETTINGS ─────────────────────────────────────────────────────────────────
+// Les paramètres sont désormais répliqués dans Firestore (doc settings/{uid})
+// pour suivre l'utilisateur d'un appareil/navigateur à l'autre. Le cache
+// localStorage reste utilisé pour un affichage instantané avant la réponse réseau.
+async function loadSettings() {
+  try {
+    const snap = await getDoc(doc(db, 'settings', uid));
+    if (snap.exists()) {
+      settings = snap.data();
+      localStorage.setItem('appSettings', JSON.stringify(settings));
+    } else {
+      // Première connexion : on migre l'éventuel cache local vers Firestore
+      await setDoc(doc(db, 'settings', uid), settings);
+    }
+  } catch (e) {
+    console.warn('Chargement des paramètres Firestore échoué, utilisation du cache local :', e.message);
+  }
+}
+
 function loadSettingsUI() {
   set('s-name',     settings.name || 'Mon Budget');
   set('s-currency', settings.currency || 'EUR');
@@ -517,10 +601,15 @@ function loadSettingsUI() {
   set('s-appId',        FIREBASE_CONFIG.appId);
 }
 
-function saveSettings() {
+async function saveSettings() {
   settings = { name: v('s-name'), currency: v('s-currency'), income: parseFloat(v('s-income')) || 0 };
   localStorage.setItem('appSettings', JSON.stringify(settings));
-  toast('success', 'Paramètres sauvegardés');
+  try {
+    await setDoc(doc(db, 'settings', uid), settings);
+    toast('success', 'Paramètres sauvegardés');
+  } catch (e) {
+    toast('warn', 'Sauvegardé localement uniquement', 'Synchronisation Firestore impossible : ' + e.message);
+  }
   closeModal('settings');
   renderMetrics();
 }
@@ -545,18 +634,27 @@ function updateMonthLabel() {
 function renderPie() {
   const ctx  = document.getElementById('pieChart').getContext('2d');
   const cats = categories.filter(c => spentByCat(c.id) > 0);
+  const uncat = uncategorizedTotal();
   if (pieChart) pieChart.destroy();
-  if (!cats.length) return;
+  if (!cats.length && !uncat) return;
+
+  const labels = cats.map(c => `${c.emoji || ''} ${c.name}`);
+  const data   = cats.map(c => spentByCat(c.id));
+  const bg     = cats.map(c => (c.color || '#888') + 'CC');
+  const border = cats.map(c => c.color || '#888');
+
+  if (uncat > 0) {
+    labels.push('❓ Non classé');
+    data.push(uncat);
+    bg.push('#888888CC');
+    border.push('#888888');
+  }
+
   pieChart = new Chart(ctx, {
     type: 'doughnut',
     data: {
-      labels: cats.map(c => `${c.emoji || ''} ${c.name}`),
-      datasets: [{
-        data: cats.map(c => spentByCat(c.id)),
-        backgroundColor: cats.map(c => (c.color || '#888') + 'CC'),
-        borderColor: cats.map(c => c.color || '#888'),
-        borderWidth: 1.5
-      }]
+      labels,
+      datasets: [{ data, backgroundColor: bg, borderColor: border, borderWidth: 1.5 }]
     },
     options: {
       responsive: true, maintainAspectRatio: false,
@@ -568,13 +666,34 @@ function renderPie() {
   });
 }
 
+// Charge les 12 mois de l'année courante, avec mise en cache : on ne refait
+// les requêtes Firestore que lorsque l'année change. Lors d'un simple
+// changement de mois (même année) ou d'une mise à jour des transactions du
+// mois courant, on réutilise le cache et on ne corrige que l'entrée concernée.
 async function loadYearData() {
   const months = Array.from({ length: 12 }, (_, i) => `${curYear}-${String(i + 1).padStart(2, '0')}`);
+
+  if (yearCache.year === curYear && yearCache.totals) {
+    renderBar(months, yearCache.totals);
+    return;
+  }
+
   const snaps  = await Promise.all(months.map(m =>
-    getDocs(query(collection(db, 'transactions'), where('monthKey', '==', m)))));
+    getDocs(query(collection(db, 'transactions'), where('uid', '==', uid), where('monthKey', '==', m)))));
   const totals = snaps.map(s =>
     s.docs.map(d => d.data()).filter(t => t.type === 'debit').reduce((sum, t) => sum + t.amount, 0));
+
+  yearCache = { year: curYear, totals };
   renderBar(months, totals);
+}
+
+// Met à jour uniquement le total du mois courant dans le cache année, à partir
+// des transactions déjà chargées en mémoire (pas de requête Firestore en plus).
+function refreshCurrentMonthInYearCache() {
+  if (yearCache.year !== curYear || !yearCache.totals) { loadYearData(); return; }
+  yearCache.totals[curMonth] = sumDebits();
+  const months = Array.from({ length: 12 }, (_, i) => `${curYear}-${String(i + 1).padStart(2, '0')}`);
+  renderBar(months, yearCache.totals);
 }
 
 function renderBar(months, totals) {
@@ -606,11 +725,21 @@ function openModal(name) {
   }
   if (name === 'settings') loadSettingsUI();
   if (name === 'recurrents') renderRecurrentsList();
-  document.getElementById('modal-' + name).classList.add('open');
+  const overlay = document.getElementById('modal-' + name);
+  overlay.classList.add('open');
+  // Accessibilité : focus sur le premier champ utile de la modale
+  const firstField = overlay.querySelector('input:not([type="hidden"]), select, textarea');
+  if (firstField) setTimeout(() => firstField.focus(), 50);
 }
 
 function closeModal(name) {
   document.getElementById('modal-' + name).classList.remove('open');
+}
+
+function closeTopOpenModal() {
+  const open = document.querySelectorAll('.modal-overlay.open');
+  if (!open.length) return;
+  open[open.length - 1].classList.remove('open');
 }
 
 function switchTab(tab) {
@@ -659,6 +788,12 @@ function clearCatForm() {
 function monthStr()        { return `${curYear}-${String(curMonth + 1).padStart(2, '0')}`; }
 function spentByCat(catId) { return transactions.filter(t => t.catId === catId && t.type === 'debit').reduce((s, t) => s + t.amount, 0); }
 function sumDebits()       { return transactions.filter(t => t.type === 'debit').reduce((s, t) => s + t.amount, 0); }
+// Transactions de dépense dont la catégorie d'origine n'existe plus (supprimée)
+function uncategorizedTotal() {
+  return transactions
+    .filter(t => t.type === 'debit' && t.catId && !categories.find(c => c.id === t.catId))
+    .reduce((s, t) => s + t.amount, 0);
+}
 function auto()            { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 function v(id)             { return document.getElementById(id)?.value || ''; }
 function set(id, val)      { const el = document.getElementById(id); if (el) el.value = val; }
@@ -689,6 +824,11 @@ document.addEventListener('click', e => {
   if (emoji) { selectedEmoji = emoji.dataset.emoji; buildEmojiGrid(); return; }
   const color = e.target.closest('[data-color]');
   if (color) { selectedColor = color.dataset.color; buildColorGrid(); return; }
+});
+
+// Fermeture des modales avec la touche Échap (accessibilité clavier)
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeTopOpenModal();
 });
 
 // ─── BINDINGS ─────────────────────────────────────────────────────────────────
