@@ -33,6 +33,10 @@
       <button data-next-month aria-label="Mois suivant"><i class="ti ti-chevron-right"></i></button>
     </div>
     <button class="btn btn-sm" id="btn-addTxn"><i class="ti ti-plus"></i> Dépense</button>
+    <!-- NOUVEAU : bouton récurrents -->
+    <button class="btn btn-sm btn-ghost" id="btn-recurrents" title="Paiements récurrents">
+      <i class="ti ti-repeat"></i> Récurrents
+    </button>
     <button class="btn btn-sm btn-ghost" id="btn-settings" aria-label="Paramètres"><i class="ti ti-settings"></i></button>
     <div class="nav-user">
       <i class="ti ti-user-circle"></i>
@@ -241,6 +245,106 @@
     <div class="modal-actions">
       <button class="btn" id="btn-cancelSettings">Annuler</button>
       <button class="btn btn-primary" id="btn-saveSettings"><i class="ti ti-check"></i> Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL : Liste des récurrents ───────────────────────────────────────── -->
+<div class="modal-overlay" id="modal-recurrents">
+  <div class="modal" style="max-width:560px;">
+    <div class="modal-title">
+      <i class="ti ti-repeat" style="color:var(--accent)"></i> Paiements récurrents
+    </div>
+    <p style="font-size:12px;color:var(--text-muted);margin:-8px 0 16px">
+      Injectés automatiquement chaque mois selon leur fréquence.
+    </p>
+    <div id="recurList"></div>
+    <div class="modal-actions" style="margin-top:16px;">
+      <button class="btn" onclick="document.getElementById('modal-recurrents').classList.remove('open')">Fermer</button>
+      <button class="btn btn-primary" id="btn-addRecurrent"><i class="ti ti-plus"></i> Ajouter</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL : Ajouter / modifier un récurrent ────────────────────────────── -->
+<div class="modal-overlay" id="modal-addRecurrent">
+  <div class="modal">
+    <div class="modal-title">
+      <i class="ti ti-repeat" style="color:var(--accent)"></i>
+      <span id="recurModalTitle">Nouveau récurrent</span>
+    </div>
+    <input type="hidden" id="recurEditId">
+
+    <div class="field">
+      <label>Description</label>
+      <input type="text" id="recur-desc" placeholder="Ex : Loyer, Netflix, Salaire…">
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label>Montant (€)</label>
+        <input type="number" id="recur-amount" placeholder="0.00" step="0.01" min="0">
+      </div>
+      <div class="field">
+        <label>Jour du mois</label>
+        <input type="number" id="recur-day" placeholder="1" min="1" max="28" value="1">
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label>Catégorie</label>
+        <select id="recur-cat"></select>
+      </div>
+      <div class="field">
+        <label>Type</label>
+        <select id="recur-type">
+          <option value="debit">💸 Dépense</option>
+          <option value="credit">💰 Revenu</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Fréquence</label>
+      <select id="recur-frequency">
+        <option value="monthly">Chaque mois</option>
+        <option value="bimonthly">Tous les 2 mois</option>
+        <option value="quarterly">Tous les trimestres</option>
+        <option value="yearly">Chaque année</option>
+      </select>
+    </div>
+
+    <!-- Affiché seulement si fréquence ≠ mensuel -->
+    <div class="field" id="recur-startMonth-row" style="display:none">
+      <label>Mois de référence</label>
+      <select id="recur-startMonth">
+        <option value="1">Janvier</option>
+        <option value="2">Février</option>
+        <option value="3">Mars</option>
+        <option value="4">Avril</option>
+        <option value="5">Mai</option>
+        <option value="6">Juin</option>
+        <option value="7">Juillet</option>
+        <option value="8">Août</option>
+        <option value="9">Septembre</option>
+        <option value="10">Octobre</option>
+        <option value="11">Novembre</option>
+        <option value="12">Décembre</option>
+      </select>
+      <p style="font-size:11px;color:var(--text-faint);margin-top:4px">
+        Le récurrent sera injecté les mois correspondant à cette fréquence à partir de ce mois.
+      </p>
+    </div>
+
+    <div class="field">
+      <label>Note (optionnel)</label>
+      <input type="text" id="recur-note" placeholder="Commentaire…">
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn" id="btn-cancelRecurrent">Annuler</button>
+      <button class="btn btn-primary" id="btn-saveRecurrent"><i class="ti ti-check"></i> Enregistrer</button>
     </div>
   </div>
 </div>
