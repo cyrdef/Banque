@@ -110,7 +110,8 @@
         <label>Mot de passe</label>
         <div class="input-wrap">
           <i class="ti ti-lock input-icon"></i>
-          <input type="password" id="login-password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" autocomplete="current-password" id="login-password">
+          <!-- CORRECTION : double id="login-password" supprimé -->
+          <input type="password" id="login-password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" autocomplete="current-password">
           <button class="toggle-pw" id="togglePwBtn" type="button" tabindex="-1"><i class="ti ti-eye" id="togglePwIcon"></i></button>
         </div>
       </div>
@@ -155,13 +156,14 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script>
+// CORRECTION : config alignée avec budget.js (banquecyrille-a9055)
 const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyDA8VWcVjmx7wT0dbTQndETGCqxuko_W24",
-  authDomain: "suivicomptes.firebaseapp.com",
-  projectId: "suivicomptes",
-  storageBucket: "suivicomptes.firebasestorage.app",
-  messagingSenderId: "775505676098",
-  appId: "1:775505676098:web:820123c3c4f38b0614aadb"
+  apiKey:            "AIzaSyAflr5Pa_aujkFcSsJ43H8LiAw_vU51Ffw",
+  authDomain:        "banquecyrille-a9055.firebaseapp.com",
+  projectId:         "banquecyrille-a9055",
+  storageBucket:     "banquecyrille-a9055.firebasestorage.app",
+  messagingSenderId: "1083349423488",
+  appId:             "1:1083349423488:web:1b7df80c5affbadeaadd65"
 };
 
 firebase.initializeApp(FIREBASE_CONFIG);
@@ -282,7 +284,7 @@ function setLoading(btnId, spinnerId, textId, on) {
   text.style.display = on ? 'none' : 'inline-flex';
 }
 
-// ── LISTENERS (sans onclick inline) ──────────────────────────────────────────
+// ── LISTENERS ─────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('loginBtn').addEventListener('click', doLogin);
   document.getElementById('resetBtn').addEventListener('click', doReset);
