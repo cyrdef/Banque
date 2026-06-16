@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Budget Mensuel — Connexion</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<style>
+  :root {
+    --bg: #F7F7F5;
+    --surface: #FFFFFF;
+    --surface2: #F0EFEB;
+    --border: rgba(0,0,0,0.08);
+    --border-strong: rgba(0,0,0,0.15);
+    --text: #1A1A18;
+    --text-muted: #6B6B67;
+    --text-faint: #A8A8A4;
+    --accent: #2C5F8A;
+    --accent-light: #E8F0F8;
+    --accent-text: #1A3F5C;
+    --green: #1D7A4F;
+    --green-light: #E6F5EE;
+    --red: #B03A2E;
+    --red-light: #FAEAE8;
+    --radius: 10px;
+    --radius-lg: 16px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-lg: 0 8px 32px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.06);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.5;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  /* ── TOAST ──────────────────────────────────────────────────── */
+  #toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: none;
+  }
+  .toast {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    box-shadow: var(--shadow-lg);
+    min-width: 260px;
+    max-width: 340px;
+    pointer-events: auto;
+    animation: toastIn 0.25s ease;
+    transition: opacity 0.3s, transform 0.3s;
+  }
+  .toast.hide { opacity: 0; transform: translateX(20px); }
+  .toast-icon { font-size: 17px; flex-shrink: 0; margin-top: 1px; }
+  .toast-body { flex: 1; }
+  .toast-title { font-size: 13px; font-weight: 600; color: var(--text); }
+  .toast-msg { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .toast-close { background: none; border: none; cursor: pointer; color: var(--text-faint); font-size: 14px; padding: 0; flex-shrink: 0; }
+  .toast-close:hover { color: var(--text); }
+  .toast.success .toast-icon { color: var(--green); }
+  .toast.error .toast-icon { color: var(--red); }
+  .toast.info .toast-icon { color: var(--accent); }
+  .toast.success { border-left: 3px solid var(--green); }
+  .toast.error { border-left: 3px solid var(--red); }
+  .toast.info { border-left: 3px solid var(--accent); }
+  @keyframes toastIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: none; } }
+
+  /* ── CARD ───────────────────────────────────────────────────── */
+  .login-wrap {
+    width: 100%;
+    max-width: 400px;
+  }
+  .login-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 28px;
+  }
+  .login-brand i { font-size: 28px; color: var(--accent); }
+  .login-brand span { font-size: 17px; font-weight: 600; color: var(--text); }
+
+  .login-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 32px;
+    box-shadow: var(--shadow-lg);
+  }
+  .login-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+  .login-sub {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-bottom: 28px;
+  }
+
+  .field { margin-bottom: 16px; }
+  .field label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    display: block;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .input-wrap { position: relative; }
+  .input-wrap i.input-icon {
+    position: absolute;
+    left: 11px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-faint);
+    font-size: 16px;
+    pointer-events: none;
+  }
+  .input-wrap input {
+    width: 100%;
+    padding: 10px 12px 10px 36px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius);
+    font-size: 13px;
+    font-family: 'Inter', sans-serif;
+    background: var(--surface);
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .input-wrap input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(44,95,138,0.1);
+  }
+  .input-wrap .toggle-pw {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-faint);
+    font-size: 15px;
+    padding: 2px;
+  }
+  .input-wrap .toggle-pw:hover { color: var(--text-muted); }
+
+  .forgot-link {
+    display: block;
+    text-align: right;
+    font-size: 12px;
+    color: var(--accent);
+    text-decoration: none;
+    margin-top: -10px;
+    margin-bottom: 20px;
+    cursor: pointer;
+  }
+  .forgot-link:hover { text-decoration: underline; }
+
+  .btn-login {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 11px 16px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 14px;
+    font-weight: 500;
+    font-family: 'Inter', sans-serif;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn-login:hover { background: var(--accent-text); }
+  .btn-login:disabled { opacity: 0.6; cursor: not-allowed; }
+  .btn-login .spinner-sm {
+    width: 16px; height: 16px;
+    border: 2px solid rgba(255,255,255,0.4);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: none;
+  }
+  .btn-login.loading .spinner-sm { display: block; }
+  .btn-login.loading .btn-text { display: none; }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── RESET VIEW ─────────────────────────────────────────────── */
+  #view-reset { display: none; }
+  #view-login { display: block; }
+
+  .back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-muted);
+    cursor: pointer;
+    background: none;
+    border: none;
+    font-family: 'Inter', sans-serif;
+    padding: 0;
+    margin-bottom: 20px;
+  }
+  .back-link:hover { color: var(--accent); }
+
+  .reset-info {
+    background: var(--accent-light);
+    border: 1px solid rgba(44,95,138,0.15);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    font-size: 13px;
+    color: var(--accent-text);
+    margin-bottom: 20px;
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+  }
+  .reset-info i { flex-shrink: 0; margin-top: 1px; }
+
+  .footer-note {
+    text-align: center;
+    margin-top: 20px;
+    font-size: 11px;
+    color: var(--text-faint);
+    font-family: 'JetBrains Mono', monospace;
+  }
+</style>
+</head>
+<body>
+
+<div id="toast-container"></div>
+
+<div class="login-wrap">
+  <div class="login-brand">
+    <i class="ti ti-building-bank"></i>
+    <span>Budget Mensuel</span>
+  </div>
+
+  <div class="login-card">
+
+    <!-- VUE : CONNEXION -->
+    <div id="view-login">
+      <div class="login-title">Bon retour 👋</div>
+      <div class="login-sub">Connecte-toi pour accéder à ton budget.</div>
+
+      <div class="field">
+        <label>Adresse e-mail</label>
+        <div class="input-wrap">
+          <i class="ti ti-mail input-icon"></i>
+          <input type="email" id="login-email" placeholder="exemple@email.com" autocomplete="email">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Mot de passe</label>
+        <div class="input-wrap">
+          <i class="ti ti-lock input-icon"></i>
+          <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password"
+            onkeydown="if(event.key==='Enter') doLogin()">
+          <button class="toggle-pw" onclick="togglePw('login-password', this)" type="button" tabindex="-1">
+            <i class="ti ti-eye"></i>
+          </button>
+        </div>
+      </div>
+
+      <a class="forgot-link" onclick="showReset()">Mot de passe oublié ?</a>
+
+      <button class="btn-login" id="loginBtn" onclick="doLogin()">
+        <div class="spinner-sm"></div>
+        <span class="btn-text"><i class="ti ti-login"></i> Se connecter</span>
+      </button>
+    </div>
+
+    <!-- VUE : MOT DE PASSE OUBLIÉ -->
+    <div id="view-reset">
+      <button class="back-link" onclick="showLogin()">
+        <i class="ti ti-arrow-left"></i> Retour à la connexion
+      </button>
+      <div class="login-title">Réinitialiser</div>
+      <div class="login-sub">Entre ton e-mail, on t'envoie un lien.</div>
+
+      <div class="reset-info">
+        <i class="ti ti-info-circle"></i>
+        <span>Un e-mail de réinitialisation sera envoyé à l'adresse indiquée si elle est associée à un compte.</span>
+      </div>
+
+      <div class="field">
+        <label>Adresse e-mail</label>
+        <div class="input-wrap">
+          <i class="ti ti-mail input-icon"></i>
+          <input type="email" id="reset-email" placeholder="exemple@email.com" autocomplete="email"
+            onkeydown="if(event.key==='Enter') doReset()">
+        </div>
+      </div>
+
+      <button class="btn-login" id="resetBtn" onclick="doReset()">
+        <div class="spinner-sm"></div>
+        <span class="btn-text"><i class="ti ti-send"></i> Envoyer le lien</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="footer-note">Budget Mensuel · Accès sécurisé</div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, onAuthStateChanged }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDA8VWcVjmx7wT0dbTQndETGCqxuko_W24",
+  authDomain: "suivicomptes.firebaseapp.com",
+  projectId: "suivicomptes",
+  storageBucket: "suivicomptes.firebasestorage.app",
+  messagingSenderId: "775505676098",
+  appId: "1:775505676098:web:820123c3c4f38b0614aadb"
+};
+
+const app = initializeApp(FIREBASE_CONFIG);
+const auth = getAuth(app);
+
+// Redirect if already logged in
+onAuthStateChanged(auth, user => {
+  if (user) {
+    toast('info', 'Déjà connecté', `Bienvenue ${user.email}`);
+    setTimeout(() => { window.location.href = 'index.html'; }, 800);
+  }
+});
+
+// ── TOAST ──────────────────────────────────────────────────────────────────
+window.toast = function(type, title, msg = '') {
+  const icons = { success: 'ti-circle-check', error: 'ti-alert-circle', info: 'ti-info-circle' };
+  const container = document.getElementById('toast-container');
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = `
+    <i class="ti ${icons[type]||'ti-info-circle'} toast-icon"></i>
+    <div class="toast-body">
+      <div class="toast-title">${title}</div>
+      ${msg ? `<div class="toast-msg">${msg}</div>` : ''}
+    </div>
+    <button class="toast-close" onclick="dismissToast(this.parentElement)"><i class="ti ti-x"></i></button>
+  `;
+  container.appendChild(el);
+  setTimeout(() => dismissToast(el), 4500);
+};
+
+window.dismissToast = function(el) {
+  if (!el || !el.parentElement) return;
+  el.classList.add('hide');
+  setTimeout(() => el.remove(), 300);
+};
+
+// ── AUTH ───────────────────────────────────────────────────────────────────
+window.doLogin = async function() {
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  if (!email || !password) {
+    toast('error', 'Champs manquants', 'Remplis l'e-mail et le mot de passe.');
+    return;
+  }
+  setLoading('loginBtn', true);
+  try {
+    const cred = await signInWithEmailAndPassword(auth, email, password);
+    toast('success', 'Connexion réussie', `Bienvenue ${cred.user.email} !`);
+    setTimeout(() => { window.location.href = 'index.html'; }, 900);
+  } catch(e) {
+    const msgs = {
+      'auth/user-not-found': 'Aucun compte trouvé pour cet e-mail.',
+      'auth/wrong-password': 'Mot de passe incorrect.',
+      'auth/invalid-email': 'Adresse e-mail invalide.',
+      'auth/too-many-requests': 'Trop de tentatives. Réessaie plus tard.',
+      'auth/user-disabled': 'Ce compte a été désactivé.',
+      'auth/invalid-credential': 'Identifiants incorrects.',
+    };
+    toast('error', 'Erreur de connexion', msgs[e.code] || e.message);
+  } finally {
+    setLoading('loginBtn', false);
+  }
+};
+
+window.doReset = async function() {
+  const email = document.getElementById('reset-email').value.trim();
+  if (!email) {
+    toast('error', 'E-mail requis', 'Entre ton adresse pour recevoir le lien.');
+    return;
+  }
+  setLoading('resetBtn', true);
+  try {
+    await sendPasswordResetEmail(auth, email);
+    toast('success', 'E-mail envoyé', `Un lien de réinitialisation a été envoyé à ${email}.`);
+    setTimeout(() => showLogin(), 1500);
+  } catch(e) {
+    const msgs = {
+      'auth/user-not-found': 'Aucun compte associé à cet e-mail.',
+      'auth/invalid-email': 'Adresse e-mail invalide.',
+    };
+    toast('error', 'Erreur', msgs[e.code] || e.message);
+  } finally {
+    setLoading('resetBtn', false);
+  }
+};
+
+// ── UI ─────────────────────────────────────────────────────────────────────
+window.showReset = function() {
+  document.getElementById('view-login').style.display = 'none';
+  document.getElementById('view-reset').style.display = 'block';
+  // Pré-remplir si email déjà saisi
+  const email = document.getElementById('login-email').value.trim();
+  if (email) document.getElementById('reset-email').value = email;
+  document.getElementById('reset-email').focus();
+};
+
+window.showLogin = function() {
+  document.getElementById('view-reset').style.display = 'none';
+  document.getElementById('view-login').style.display = 'block';
+  document.getElementById('login-email').focus();
+};
+
+window.togglePw = function(inputId, btn) {
+  const input = document.getElementById(inputId);
+  const isHidden = input.type === 'password';
+  input.type = isHidden ? 'text' : 'password';
+  btn.querySelector('i').className = isHidden ? 'ti ti-eye-off' : 'ti ti-eye';
+};
+
+function setLoading(btnId, on) {
+  document.getElementById(btnId).classList.toggle('loading', on);
+  document.getElementById(btnId).disabled = on;
+}
+</script>
+</body>
+</html>
