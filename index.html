@@ -117,7 +117,7 @@
 
 <!-- ── MODAL : Nouvelle / modifier transaction ─────────────────────────────── -->
 <div class="modal-overlay" id="modal-addTxn">
-  <div class="modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="txnModalTitle">
     <div class="modal-title">
       <i class="ti ti-receipt" style="color:var(--accent)"></i>
       <span id="txnModalTitle">Nouvelle transaction</span>
@@ -158,7 +158,7 @@
 
 <!-- ── MODAL : Nouvelle / modifier catégorie ──────────────────────────────── -->
 <div class="modal-overlay" id="modal-addCat">
-  <div class="modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="catModalTitle">
     <div class="modal-title">
       <i class="ti ti-layout-grid" style="color:var(--accent)"></i>
       <span id="catModalTitle">Nouvelle catégorie</span>
@@ -189,7 +189,7 @@
 
 <!-- ── MODAL : Modifier budget rapide ─────────────────────────────────────── -->
 <div class="modal-overlay" id="modal-editBudget">
-  <div class="modal" style="max-width:320px;">
+  <div class="modal" style="max-width:320px;" role="dialog" aria-modal="true" aria-label="Modifier le budget">
     <div class="modal-title">
       <i class="ti ti-target" style="color:var(--accent)"></i> Modifier le budget
     </div>
@@ -207,7 +207,7 @@
 
 <!-- ── MODAL : Paramètres ──────────────────────────────────────────────────── -->
 <div class="modal-overlay" id="modal-settings">
-  <div class="modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-label="Paramètres">
     <div class="modal-title">
       <i class="ti ti-settings" style="color:var(--accent)"></i> Paramètres
     </div>
@@ -251,7 +251,7 @@
 
 <!-- ── MODAL : Liste des récurrents ───────────────────────────────────────── -->
 <div class="modal-overlay" id="modal-recurrents">
-  <div class="modal" style="max-width:560px;">
+  <div class="modal" style="max-width:560px;" role="dialog" aria-modal="true" aria-label="Paiements récurrents">
     <div class="modal-title">
       <i class="ti ti-repeat" style="color:var(--accent)"></i> Paiements récurrents
     </div>
@@ -260,7 +260,7 @@
     </p>
     <div id="recurList"></div>
     <div class="modal-actions" style="margin-top:16px;">
-      <button class="btn" onclick="document.getElementById('modal-recurrents').classList.remove('open')">Fermer</button>
+      <button class="btn" id="btn-closeRecurrents">Fermer</button>
       <button class="btn btn-primary" id="btn-addRecurrent"><i class="ti ti-plus"></i> Ajouter</button>
     </div>
   </div>
@@ -268,7 +268,7 @@
 
 <!-- ── MODAL : Ajouter / modifier un récurrent ────────────────────────────── -->
 <div class="modal-overlay" id="modal-addRecurrent">
-  <div class="modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="recurModalTitle">
     <div class="modal-title">
       <i class="ti ti-repeat" style="color:var(--accent)"></i>
       <span id="recurModalTitle">Nouveau récurrent</span>
