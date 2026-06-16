@@ -24,11 +24,19 @@ const EMOJIS = ['🏠','🛒','🚗','💊','🎉','👕','📱','💡','🏋️
 const COLORS  = ['#2C5F8A','#1D7A4F','#B03A2E','#8A6200','#6B3FA0','#1A7A7A',
                  '#C45C20','#4A7A1A','#A0356B','#2A6A8A','#555','#7A4A1A'];
 
+const RECUR_FREQ_LABELS = {
+  monthly:    'Chaque mois',
+  bimonthly:  'Tous les 2 mois',
+  quarterly:  'Tous les trimestres',
+  yearly:     'Chaque année'
+};
+
 // ─── STATE ────────────────────────────────────────────────────────────────────
 let settings    = JSON.parse(localStorage.getItem('appSettings') || '{"name":"Mon Budget","currency":"EUR","income":0}');
-let db, auth, unsubTxns;
-let categories  = [];
+let db, auth, unsubTxns, unsubRecurrents;
+let categories   = [];
 let transactions = [];
+let recurrents   = [];
 let selectedEmoji = '📦';
 let selectedColor = COLORS[0];
 let pieChart, barChart;
@@ -39,12 +47,7 @@ let curMonth = now.getMonth();
 
 // ─── TOAST ────────────────────────────────────────────────────────────────────
 export function toast(type, title, msg = '') {
-  const icons = {
-    success: 'ti-circle-check',
-    error:   'ti-alert-circle',
-    info:    'ti-info-circle',
-    warn:    'ti-alert-triangle'
-  };
+  const icons = { success: 'ti-circle-check', error: 'ti-alert-circle', info: 'ti-info-circle', warn: 'ti-alert-triangle' };
   const container = document.getElementById('toast-container');
   const el = document.createElement('div');
   el.className = `toast ${type}`;
@@ -84,6 +87,7 @@ function init() {
       buildColorGrid();
       loadSettingsUI();
       listenCategories();
+      listenRecurrents();
     });
   } catch (e) {
     document.getElementById('loadingScreen').innerHTML =
@@ -118,6 +122,66 @@ function listenTransactions() {
     render();
   });
   loadYearData();
+}
+
+// ─── RÉCURRENTS : listener + injection ───────────────────────────────────────
+function listenRecurrents() {
+  if (unsubRecurrents) unsubRecurrents();
+  unsubRecurrents = onSnapshot(collection(db, 'recurrents'), snap => {
+    recurrents = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderRecurrentsList();
+    injectRecurrents();
+  });
+}
+
+/**
+ * Vérifie si un récurrent doit être injecté pour le mois courant
+ * selon sa fréquence, puis crée la transaction si elle n'existe pas déjà.
+ */
+async function injectRecurrents() {
+  if (!recurrents.length) return;
+  const key = monthStr(); // ex: "2025-06"
+  const [y, m] = key.split('-').map(Number);
+
+  for (const r of recurrents) {
+    if (!shouldInjectThisMonth(r, y, m)) continue;
+
+    // Vérifie si déjà injectée ce mois (via champ recurrentId + monthKey)
+    const existing = transactions.find(t => t.recurrentId === r.id && t.monthKey === key);
+    if (existing) continue;
+
+    // Injection
+    const dateStr = `${key}-${String(r.dayOfMonth || 1).padStart(2, '0')}`;
+    const id = 'rec_' + r.id + '_' + key.replace('-', '');
+    try {
+      await setDoc(doc(db, 'transactions', id), {
+        desc:        r.desc,
+        amount:      r.amount,
+        date:        dateStr,
+        catId:       r.catId,
+        type:        r.type || 'debit',
+        note:        r.note || '',
+        monthKey:    key,
+        recurrentId: r.id,
+        auto:        true
+      });
+    } catch (e) {
+      console.warn('Injection récurrent échouée :', r.desc, e.message);
+    }
+  }
+}
+
+/**
+ * Retourne true si le récurrent doit être injecté pour (year, month).
+ * month est 1-based (janvier = 1).
+ */
+function shouldInjectThisMonth(r, year, month) {
+  const freq = r.frequency || 'monthly';
+  if (freq === 'monthly')   return true;
+  if (freq === 'bimonthly') return month % 2 === (r.startMonth % 2 || 0);
+  if (freq === 'quarterly') return (month - 1) % 3 === ((r.startMonth - 1) % 3 || 0);
+  if (freq === 'yearly')    return month === (r.startMonth || 1);
+  return false;
 }
 
 // ─── RENDER ───────────────────────────────────────────────────────────────────
@@ -213,10 +277,13 @@ function renderTxns() {
   el.innerHTML = txns.map(t => {
     const cat = categories.find(c => c.id === t.catId) || { emoji: '📦', color: '#888', name: 'Autre' };
     const d   = t.date ? new Date(t.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }) : '';
+    const recurBadge = t.auto
+      ? `<span class="badge badge-recur" title="Transaction récurrente"><i class="ti ti-repeat"></i> Auto</span>`
+      : '';
     return `<div class="txn-row">
       <div class="txn-icon" style="background:${cat.color}22">${cat.emoji || '📦'}</div>
       <div class="txn-info">
-        <div class="txn-desc">${esc(t.desc)}</div>
+        <div class="txn-desc">${esc(t.desc)} ${recurBadge}</div>
         <div class="txn-meta">${d} · ${esc(cat.name)}${t.note ? ' · ' + esc(t.note) : ''}</div>
       </div>
       <div class="txn-amount ${t.type === 'credit' ? 'credit' : 'debit'}">
@@ -228,58 +295,117 @@ function renderTxns() {
   }).join('');
 }
 
-function renderPie() {
-  const ctx  = document.getElementById('pieChart').getContext('2d');
-  const cats = categories.filter(c => spentByCat(c.id) > 0);
-  if (pieChart) pieChart.destroy();
-  if (!cats.length) return;
-  pieChart = new Chart(ctx, {
-    type: 'doughnut',
-    data: {
-      labels: cats.map(c => `${c.emoji || ''} ${c.name}`),
-      datasets: [{
-        data: cats.map(c => spentByCat(c.id)),
-        backgroundColor: cats.map(c => (c.color || '#888') + 'CC'),
-        borderColor: cats.map(c => c.color || '#888'),
-        borderWidth: 1.5
-      }]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: {
-        legend: { position: 'right', labels: { font: { size: 11, family: 'Inter' }, boxWidth: 12, padding: 10 } },
-        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${fmt(ctx.raw)}` } }
-      }
-    }
-  });
+// ─── RENDER RÉCURRENTS (liste dans la modal) ──────────────────────────────────
+function renderRecurrentsList() {
+  const el = document.getElementById('recurList');
+  if (!el) return;
+  if (!recurrents.length) {
+    el.innerHTML = `<div class="empty" style="padding:24px 0">
+      <i class="ti ti-repeat" style="font-size:32px;display:block;margin-bottom:8px"></i>
+      <p>Aucun paiement récurrent.<br>Ajoute ton loyer, abonnements…</p></div>`;
+    return;
+  }
+  el.innerHTML = recurrents.map(r => {
+    const cat = categories.find(c => c.id === r.catId) || { emoji: '📦', color: '#888', name: 'Autre' };
+    const freqLabel = RECUR_FREQ_LABELS[r.frequency] || r.frequency;
+    return `<div class="recur-row">
+      <div class="cat-icon" style="background:${cat.color}22;width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0">${cat.emoji || '📦'}</div>
+      <div class="txn-info" style="flex:1;min-width:0">
+        <div class="txn-desc">${esc(r.desc)}</div>
+        <div class="txn-meta">
+          ${freqLabel} · le ${r.dayOfMonth || 1} du mois · ${esc(cat.name)}
+          ${r.type === 'credit'
+            ? `<span class="badge badge-ok" style="margin-left:4px">Revenu</span>`
+            : ''}
+        </div>
+      </div>
+      <div class="txn-amount ${r.type === 'credit' ? 'credit' : 'debit'}" style="font-size:13px;font-weight:500;margin-right:6px">
+        ${r.type === 'credit' ? '+' : '-'}${fmt(r.amount)}
+      </div>
+      <button class="icon-btn" data-action="editRecur"   data-id="${r.id}" title="Modifier"><i class="ti ti-pencil"></i></button>
+      <button class="icon-btn danger" data-action="deleteRecur" data-id="${r.id}" title="Supprimer"><i class="ti ti-trash"></i></button>
+    </div>`;
+  }).join('');
 }
 
-async function loadYearData() {
-  const months = Array.from({ length: 12 }, (_, i) => `${curYear}-${String(i + 1).padStart(2, '0')}`);
-  const snaps  = await Promise.all(months.map(m =>
-    getDocs(query(collection(db, 'transactions'), where('monthKey', '==', m)))));
-  const totals = snaps.map(s =>
-    s.docs.map(d => d.data()).filter(t => t.type === 'debit').reduce((sum, t) => sum + t.amount, 0));
-  renderBar(months, totals);
+// ─── CRUD RÉCURRENTS ─────────────────────────────────────────────────────────
+async function saveRecurrent() {
+  const desc       = v('recur-desc').trim();
+  const amount     = parseFloat(v('recur-amount')) || 0;
+  const catId      = v('recur-cat');
+  const type       = v('recur-type');
+  const frequency  = v('recur-frequency');
+  const dayOfMonth = parseInt(v('recur-day')) || 1;
+  const note       = v('recur-note').trim();
+
+  if (!desc || !amount) {
+    toast('error', 'Champs manquants', 'Remplis la description et le montant.');
+    return;
+  }
+
+  const editId = v('recurEditId');
+  const isEdit = !!editId;
+  const id     = editId || auto();
+
+  // On retient le mois de départ pour calculer les fréquences bi-mensuel/trimestriel/annuel
+  const startMonth = parseInt(v('recur-startMonth')) || (curMonth + 1);
+
+  try {
+    await setDoc(doc(db, 'recurrents', id), {
+      desc, amount, catId, type, frequency, dayOfMonth, note, startMonth
+    });
+    toast('success', isEdit ? 'Récurrent modifié' : 'Récurrent ajouté', `${desc} · ${fmt(amount)}`);
+    closeModal('recurrents');
+    // Force injection immédiate pour le mois courant
+    await injectRecurrents();
+  } catch (e) {
+    toast('error', 'Erreur', e.message);
+  }
 }
 
-function renderBar(months, totals) {
-  const ctx    = document.getElementById('barChart').getContext('2d');
-  const labels = months.map(m => new Date(m + '-01').toLocaleDateString('fr-FR', { month: 'short' }));
-  const colors = months.map((_, i) => i === curMonth ? '#2C5F8A' : '#2C5F8ACC');
-  if (barChart) barChart.destroy();
-  barChart = new Chart(ctx, {
-    type: 'bar',
-    data: { labels, datasets: [{ label: 'Dépenses', data: totals, backgroundColor: colors, borderRadius: 5, borderSkipped: false }] },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: {
-        y: { ticks: { callback: v => fmt(v), font: { size: 10 } }, grid: { color: 'rgba(0,0,0,0.05)' } },
-        x: { ticks: { font: { size: 11 }, autoSkip: false }, grid: { display: false } }
-      }
-    }
-  });
+async function deleteRecurrent(id) {
+  const r = recurrents.find(x => x.id === id);
+  if (!confirm('Supprimer ce paiement récurrent ?\nLes transactions déjà injectées resteront.')) return;
+  try {
+    await deleteDoc(doc(db, 'recurrents', id));
+    toast('info', 'Récurrent supprimé', r ? r.desc : '');
+  } catch (e) { toast('error', 'Erreur', e.message); }
+}
+
+function openEditRecurrent(id) {
+  const r = recurrents.find(x => x.id === id);
+  if (!r) return;
+  document.getElementById('recurModalTitle').textContent = 'Modifier le récurrent';
+  document.getElementById('recurEditId').value = id;
+  set('recur-desc',       r.desc);
+  set('recur-amount',     r.amount);
+  set('recur-type',       r.type || 'debit');
+  set('recur-frequency',  r.frequency || 'monthly');
+  set('recur-day',        r.dayOfMonth || 1);
+  set('recur-startMonth', r.startMonth || (curMonth + 1));
+  set('recur-note',       r.note || '');
+  updateRecurCatSelect();
+  document.getElementById('recur-cat').value = r.catId || '';
+  updateFrequencyFieldVisibility();
+  openModal('addRecurrent');
+}
+
+function updateFrequencyFieldVisibility() {
+  const freq  = v('recur-frequency');
+  const row   = document.getElementById('recur-startMonth-row');
+  if (!row) return;
+  row.style.display = (freq === 'monthly') ? 'none' : '';
+}
+
+function openAddRecurrentForm() {
+  document.getElementById('recurModalTitle').textContent = 'Nouveau récurrent';
+  document.getElementById('recurEditId').value = '';
+  set('recur-desc', ''); set('recur-amount', ''); set('recur-note', '');
+  set('recur-type', 'debit'); set('recur-frequency', 'monthly');
+  set('recur-day', 1); set('recur-startMonth', curMonth + 1);
+  updateRecurCatSelect();
+  updateFrequencyFieldVisibility();
+  openModal('addRecurrent');
 }
 
 // ─── CRUD TRANSACTIONS ────────────────────────────────────────────────────────
@@ -382,13 +508,13 @@ async function saveBudget() {
 
 // ─── SETTINGS ─────────────────────────────────────────────────────────────────
 function loadSettingsUI() {
-  set('s-name',             settings.name || 'Mon Budget');
-  set('s-currency',         settings.currency || 'EUR');
-  set('s-income',           settings.income || '');
-  set('s-apiKey',           FIREBASE_CONFIG.apiKey);
-  set('s-projectId',        FIREBASE_CONFIG.projectId);
-  set('s-authDomain',       FIREBASE_CONFIG.authDomain);
-  set('s-appId',            FIREBASE_CONFIG.appId);
+  set('s-name',     settings.name || 'Mon Budget');
+  set('s-currency', settings.currency || 'EUR');
+  set('s-income',   settings.income || '');
+  set('s-apiKey',       FIREBASE_CONFIG.apiKey);
+  set('s-projectId',    FIREBASE_CONFIG.projectId);
+  set('s-authDomain',   FIREBASE_CONFIG.authDomain);
+  set('s-appId',        FIREBASE_CONFIG.appId);
 }
 
 function saveSettings() {
@@ -415,6 +541,61 @@ function updateMonthLabel() {
   document.getElementById('monthLabel').textContent = label.charAt(0).toUpperCase() + label.slice(1);
 }
 
+// ─── GRAPHIQUES ───────────────────────────────────────────────────────────────
+function renderPie() {
+  const ctx  = document.getElementById('pieChart').getContext('2d');
+  const cats = categories.filter(c => spentByCat(c.id) > 0);
+  if (pieChart) pieChart.destroy();
+  if (!cats.length) return;
+  pieChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: cats.map(c => `${c.emoji || ''} ${c.name}`),
+      datasets: [{
+        data: cats.map(c => spentByCat(c.id)),
+        backgroundColor: cats.map(c => (c.color || '#888') + 'CC'),
+        borderColor: cats.map(c => c.color || '#888'),
+        borderWidth: 1.5
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'right', labels: { font: { size: 11, family: 'Inter' }, boxWidth: 12, padding: 10 } },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${fmt(ctx.raw)}` } }
+      }
+    }
+  });
+}
+
+async function loadYearData() {
+  const months = Array.from({ length: 12 }, (_, i) => `${curYear}-${String(i + 1).padStart(2, '0')}`);
+  const snaps  = await Promise.all(months.map(m =>
+    getDocs(query(collection(db, 'transactions'), where('monthKey', '==', m)))));
+  const totals = snaps.map(s =>
+    s.docs.map(d => d.data()).filter(t => t.type === 'debit').reduce((sum, t) => sum + t.amount, 0));
+  renderBar(months, totals);
+}
+
+function renderBar(months, totals) {
+  const ctx    = document.getElementById('barChart').getContext('2d');
+  const labels = months.map(m => new Date(m + '-01').toLocaleDateString('fr-FR', { month: 'short' }));
+  const colors = months.map((_, i) => i === curMonth ? '#2C5F8A' : '#2C5F8ACC');
+  if (barChart) barChart.destroy();
+  barChart = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets: [{ label: 'Dépenses', data: totals, backgroundColor: colors, borderRadius: 5, borderSkipped: false }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { ticks: { callback: v => fmt(v), font: { size: 10 } }, grid: { color: 'rgba(0,0,0,0.05)' } },
+        x: { ticks: { font: { size: 11 }, autoSkip: false }, grid: { display: false } }
+      }
+    }
+  });
+}
+
 // ─── MODALS ───────────────────────────────────────────────────────────────────
 function openModal(name) {
   if (name === 'addTxn') {
@@ -424,6 +605,7 @@ function openModal(name) {
     updateCatSelect();
   }
   if (name === 'settings') loadSettingsUI();
+  if (name === 'recurrents') renderRecurrentsList();
   document.getElementById('modal-' + name).classList.add('open');
 }
 
@@ -441,6 +623,11 @@ function switchTab(tab) {
 // ─── UI HELPERS ───────────────────────────────────────────────────────────────
 function updateCatSelect() {
   document.getElementById('txn-cat').innerHTML =
+    categories.map(c => `<option value="${c.id}">${c.emoji || '📦'} ${esc(c.name)}</option>`).join('');
+}
+
+function updateRecurCatSelect() {
+  document.getElementById('recur-cat').innerHTML =
     categories.map(c => `<option value="${c.id}">${c.emoji || '📦'} ${esc(c.name)}</option>`).join('');
 }
 
@@ -469,13 +656,13 @@ function clearCatForm() {
 }
 
 // ─── UTILS ────────────────────────────────────────────────────────────────────
-function monthStr()       { return `${curYear}-${String(curMonth + 1).padStart(2, '0')}`; }
-function spentByCat(catId){ return transactions.filter(t => t.catId === catId && t.type === 'debit').reduce((s, t) => s + t.amount, 0); }
-function sumDebits()      { return transactions.filter(t => t.type === 'debit').reduce((s, t) => s + t.amount, 0); }
-function auto()           { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
-function v(id)            { return document.getElementById(id)?.value || ''; }
-function set(id, val)     { const el = document.getElementById(id); if (el) el.value = val; }
-function esc(s)           { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function monthStr()        { return `${curYear}-${String(curMonth + 1).padStart(2, '0')}`; }
+function spentByCat(catId) { return transactions.filter(t => t.catId === catId && t.type === 'debit').reduce((s, t) => s + t.amount, 0); }
+function sumDebits()       { return transactions.filter(t => t.type === 'debit').reduce((s, t) => s + t.amount, 0); }
+function auto()            { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+function v(id)             { return document.getElementById(id)?.value || ''; }
+function set(id, val)      { const el = document.getElementById(id); if (el) el.value = val; }
+function esc(s)            { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function fmt(n) {
   const sym   = { EUR: '€', USD: '$', CHF: 'CHF ', GBP: '£', MAD: 'MAD ' }[settings.currency || 'EUR'] || '€';
   const after = ['EUR', 'GBP', 'USD'].includes(settings.currency);
@@ -483,16 +670,18 @@ function fmt(n) {
   return after ? `${s} ${sym}`.trim() : `${sym}${s}`;
 }
 
-// ─── EVENT DELEGATION (remplace tous les onclick="") ──────────────────────────
+// ─── EVENT DELEGATION ─────────────────────────────────────────────────────────
 document.addEventListener('click', e => {
   const btn = e.target.closest('[data-action]');
   if (!btn) return;
   const { action, id } = btn.dataset;
-  if (action === 'editTxn')    openEditTxn(id);
-  if (action === 'deleteTxn')  deleteTxn(id);
-  if (action === 'editCat')    openEditCat(id);
-  if (action === 'deleteCat')  deleteCat(id);
-  if (action === 'editBudget') openEditBudget(id);
+  if (action === 'editTxn')     openEditTxn(id);
+  if (action === 'deleteTxn')   deleteTxn(id);
+  if (action === 'editCat')     openEditCat(id);
+  if (action === 'deleteCat')   deleteCat(id);
+  if (action === 'editBudget')  openEditBudget(id);
+  if (action === 'editRecur')   openEditRecurrent(id);
+  if (action === 'deleteRecur') deleteRecurrent(id);
 });
 
 document.addEventListener('click', e => {
@@ -502,19 +691,17 @@ document.addEventListener('click', e => {
   if (color) { selectedColor = color.dataset.color; buildColorGrid(); return; }
 });
 
-// ─── BINDINGS NAVIGATION & MODALS ────────────────────────────────────────────
+// ─── BINDINGS ─────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  // Nav mois
   document.querySelector('[data-prev-month]')?.addEventListener('click', () => changeMonth(-1));
   document.querySelector('[data-next-month]')?.addEventListener('click', () => changeMonth(1));
 
-  // Boutons nav principaux
   document.getElementById('btn-addTxn')    ?.addEventListener('click', () => openModal('addTxn'));
   document.getElementById('btn-settings')  ?.addEventListener('click', () => openModal('settings'));
   document.getElementById('btn-addCat')    ?.addEventListener('click', () => openModal('addCat'));
   document.getElementById('btn-logout')    ?.addEventListener('click', doLogout);
+  document.getElementById('btn-recurrents')?.addEventListener('click', () => openModal('recurrents'));
 
-  // Modals save/cancel
   document.getElementById('btn-saveTxn')   ?.addEventListener('click', saveTxn);
   document.getElementById('btn-cancelTxn') ?.addEventListener('click', () => closeModal('addTxn'));
   document.getElementById('btn-saveCat')   ?.addEventListener('click', saveCat);
@@ -524,15 +711,18 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-saveSettings')  ?.addEventListener('click', saveSettings);
   document.getElementById('btn-cancelSettings')?.addEventListener('click', () => closeModal('settings'));
 
-  // Tabs paramètres
+  // Récurrents
+  document.getElementById('btn-addRecurrent')  ?.addEventListener('click', openAddRecurrentForm);
+  document.getElementById('btn-saveRecurrent') ?.addEventListener('click', saveRecurrent);
+  document.getElementById('btn-cancelRecurrent')?.addEventListener('click', () => closeModal('addRecurrent'));
+  document.getElementById('recur-frequency')   ?.addEventListener('change', updateFrequencyFieldVisibility);
+
   document.getElementById('tab-general') ?.addEventListener('click', () => switchTab('general'));
   document.getElementById('tab-firebase')?.addEventListener('click', () => switchTab('firebase'));
 
-  // Fermeture modals au clic overlay
   document.querySelectorAll('.modal-overlay').forEach(m =>
     m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); }));
 
-  // Recherche / filtre transactions
   document.getElementById('searchInput')?.addEventListener('input', renderTxns);
   document.getElementById('catFilter')  ?.addEventListener('change', renderTxns);
 });
