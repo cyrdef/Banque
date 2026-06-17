@@ -9,7 +9,7 @@ import {
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 // ⚠️  Remplace par ta propre config Firebase
-const firebaseConfig = {
+const FIREBASE_CONFIG = {
   apiKey: "AIzaSyAflr5Pa_aujkFcSsJ43H8LiAw_vU51Ffw",
   authDomain: "banquecyrille-a9055.firebaseapp.com",
   projectId: "banquecyrille-a9055",
