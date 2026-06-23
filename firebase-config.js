@@ -11,12 +11,12 @@
 // ============================================================
 
 const firebaseConfig = {
-  apiKey: "REMPLACE_MOI",
-  authDomain: "REMPLACE_MOI.firebaseapp.com",
-  projectId: "REMPLACE_MOI",
-  storageBucket: "REMPLACE_MOI.appspot.com",
-  messagingSenderId: "REMPLACE_MOI",
-  appId: "REMPLACE_MOI"
+  apiKey:            "AIzaSyAflr5Pa_aujkFcSsJ43H8LiAw_vU51Ffw",
+  authDomain:        "banquecyrille-a9055.firebaseapp.com",
+  projectId:         "banquecyrille-a9055",
+  storageBucket:     "banquecyrille-a9055.firebasestorage.app",
+  messagingSenderId: "1083349423488",
+  appId:             "1:1083349423488:web:1b7df80c5affbadeaadd65"
 };
 
 // Initialisation Firebase (SDK compat, chargé en CDN dans index.html)
