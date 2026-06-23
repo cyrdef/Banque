@@ -1,431 +1,47 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Budget Foyer</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
-  <link rel="stylesheet" href="budget.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gestion des comptes</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="css/style.css">
+
+<!-- Firebase SDK (compat, simple à utiliser sans build tool) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 </head>
 <body>
 
-<!-- TOAST -->
-<div id="toast-container"></div>
-
-<!-- LOADING -->
-<div id="loadingScreen">
-  <div class="spinner"></div>
-  <p style="color:var(--text-muted);font-size:13px;">Chargement du foyer…</p>
+<div id="app">
+  <div class="loader" id="initial-loader">Chargement…</div>
 </div>
 
-<!-- ── NAV ─────────────────────────────────────────────────────────────────── -->
-<nav>
-  <div class="nav-brand">
-    <i class="ti ti-home-heart"></i>
-    Budget Foyer
-  </div>
+<div id="toast"></div>
 
-  <!-- Account selector -->
-  <div class="account-pill" id="accountPill">
-    <select id="accountSelector" title="Changer de compte"></select>
-    <button class="account-pill-btn" id="btn-manageAccounts" title="Gérer les comptes">
-      <i class="ti ti-wallet" style="font-size:15px"></i>
-    </button>
-  </div>
+<!-- Configuration Firebase -->
+<script src="js/firebase-config.js"></script>
 
-  <div class="nav-spacer"></div>
+<!-- Utilitaires partagés -->
+<script src="js/utils.js"></script>
 
-  <!-- Month nav -->
-  <div class="nav-month">
-    <button data-prev-month aria-label="Mois précédent"><i class="ti ti-chevron-left"></i></button>
-    <span id="monthLabel">–</span>
-    <button data-next-month aria-label="Mois suivant"><i class="ti ti-chevron-right"></i></button>
-  </div>
+<!-- Authentification -->
+<script src="js/auth.js"></script>
 
-  <div class="nav-right">
-    <button class="btn btn-sm btn-primary" id="btn-addTxn"><i class="ti ti-plus"></i> <span>Transaction</span></button>
-    <button class="btn btn-sm btn-ghost" id="btn-recurrents" title="Paiements récurrents">
-      <i class="ti ti-repeat"></i> <span>Récurrents</span>
-    </button>
-    <button class="btn btn-sm btn-ghost" id="btn-settings" aria-label="Paramètres"><i class="ti ti-settings"></i></button>
-    <div class="nav-user">
-      <i class="ti ti-user-circle" style="font-size:17px"></i>
-      <span class="nav-user-email" id="navUserEmail" style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;"></span>
-      <button class="icon-btn" id="btn-logout" title="Se déconnecter"><i class="ti ti-logout"></i></button>
-    </div>
-  </div>
-</nav>
+<!-- Modules -->
+<script src="js/modules/depenses-fixes.js"></script>
+<script src="js/modules/enveloppes.js"></script>
+<script src="js/modules/credits.js"></script>
+<script src="js/modules/travaux.js"></script>
+<script src="js/modules/projets.js"></script>
+<script src="js/modules/location.js"></script>
 
-<!-- ── MAIN ─────────────────────────────────────────────────────────────────── -->
-<div class="container">
+<!-- Application principale (routing entre modules) -->
+<script src="js/app.js"></script>
 
-  <!-- Foyer consolidated banner -->
-  <div class="foyer-banner" id="foyerBanner">
-    <div class="foyer-banner-item">
-      <div class="foyer-banner-title"><i class="ti ti-home-heart"></i> Solde foyer total</div>
-      <div class="foyer-banner-value" id="fb-solde">–</div>
-      <div class="foyer-banner-sub" id="fb-comptes">–</div>
-    </div>
-    <div class="foyer-banner-divider"></div>
-    <div class="foyer-banner-item">
-      <div class="foyer-banner-title">Dépensé ce mois</div>
-      <div class="foyer-banner-value" id="fb-spent">–</div>
-      <div class="foyer-banner-sub" id="fb-spent-sub">tous comptes</div>
-    </div>
-    <div class="foyer-banner-divider"></div>
-    <div class="foyer-banner-item">
-      <div class="foyer-banner-title">Économisé ce mois</div>
-      <div class="foyer-banner-value" id="fb-epargne">–</div>
-      <div class="foyer-banner-sub">revenus – dépenses</div>
-    </div>
-  </div>
-
-  <!-- Account cards -->
-  <div id="accountCards" style="margin-bottom:20px;"></div>
-
-  <!-- Current account metrics -->
-  <div class="grid-3" style="margin-bottom:16px;" id="metricsRow">
-    <div class="metric">
-      <div class="metric-label"><i class="ti ti-wallet"></i> Solde compte</div>
-      <div class="metric-value" id="m-solde">–</div>
-      <div class="metric-sub" id="m-solde-sub"></div>
-    </div>
-    <div class="metric">
-      <div class="metric-label"><i class="ti ti-arrow-down-circle"></i> Dépensé ce mois</div>
-      <div class="metric-value red" id="m-spent">–</div>
-      <div class="metric-sub" id="m-spent-sub"></div>
-    </div>
-    <div class="metric">
-      <div class="metric-label"><i class="ti ti-trending-up"></i> Restant / budget</div>
-      <div class="metric-value" id="m-left">–</div>
-      <div class="metric-sub" id="m-left-sub"></div>
-    </div>
-  </div>
-
-  <!-- Alertes -->
-  <div id="alerts"></div>
-
-  <div class="grid-2">
-    <!-- Catégories -->
-    <div class="card">
-      <div class="section-header">
-        <div class="card-title"><i class="ti ti-layout-grid"></i> Catégories</div>
-        <button class="btn btn-sm" id="btn-addCat"><i class="ti ti-plus"></i> Catégorie</button>
-      </div>
-      <div id="catList"></div>
-    </div>
-
-    <!-- Graphiques -->
-    <div style="display:flex;flex-direction:column;gap:16px;">
-      <div class="card" style="padding-bottom:16px;">
-        <div class="card-title"><i class="ti ti-chart-donut"></i> Répartition</div>
-        <div class="chart-wrap"><canvas id="pieChart"></canvas></div>
-      </div>
-      <div class="card">
-        <div class="card-title"><i class="ti ti-calendar-stats"></i> Vue annuelle</div>
-        <div class="chart-wrap"><canvas id="barChart"></canvas></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Transactions -->
-  <div class="card" style="margin-top:16px;">
-    <div class="section-header">
-      <div class="card-title"><i class="ti ti-list"></i> Transactions du mois</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <input type="text" id="searchInput" placeholder="Rechercher…"
-          style="padding:6px 10px;border:1px solid var(--border);border-radius:7px;font-size:12px;font-family:'Inter',sans-serif;outline:none;width:150px;">
-        <select id="catFilter"
-          style="padding:6px 10px;border:1px solid var(--border);border-radius:7px;font-size:12px;font-family:'Inter',sans-serif;outline:none;">
-          <option value="">Toutes les cat.</option>
-        </select>
-      </div>
-    </div>
-    <div id="txnList"></div>
-  </div>
-
-</div><!-- /container -->
-
-
-<!-- ═══════════════════════════════════════════════════════════════════════════
-     MODALS
-     ═══════════════════════════════════════════════════════════════════════════ -->
-
-<!-- ── Gérer les comptes ──────────────────────────────────────────────────── -->
-<div class="modal-overlay" id="modal-accounts">
-  <div class="modal modal-lg" role="dialog" aria-modal="true" aria-label="Comptes bancaires">
-    <div class="modal-title">
-      <i class="ti ti-wallet" style="color:var(--accent)"></i> Comptes bancaires
-    </div>
-    <p style="font-size:12px;color:var(--text-muted);margin:-8px 0 16px">
-      Gérez vos comptes courants, épargnes, cartes… Chaque compte a ses propres transactions et catégories.
-    </p>
-    <div id="accountModalList"></div>
-    <div class="modal-actions" style="margin-top:16px;">
-      <button class="btn" id="btn-closeAccounts">Fermer</button>
-      <button class="btn btn-primary" id="btn-addAccount"><i class="ti ti-plus"></i> Nouveau compte</button>
-    </div>
-  </div>
-</div>
-
-<!-- ── Créer / modifier un compte ─────────────────────────────────────────── -->
-<div class="modal-overlay" id="modal-editAccount">
-  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="accountModalTitle">
-    <div class="modal-title">
-      <i class="ti ti-building-bank" style="color:var(--accent)"></i>
-      <span id="accountModalTitle">Nouveau compte</span>
-    </div>
-    <input type="hidden" id="accountEditId">
-
-    <div class="field">
-      <label>Nom du compte</label>
-      <input type="text" id="acc-name" placeholder="Ex : Compte courant BNP, Livret A…">
-    </div>
-
-    <div class="field-row">
-      <div class="field">
-        <label>Type</label>
-        <select id="acc-type">
-          <option value="courant">Compte courant</option>
-          <option value="epargne">Épargne / Livret</option>
-          <option value="joint">Compte joint</option>
-          <option value="carte">Carte prépayée</option>
-          <option value="autre">Autre</option>
-        </select>
-      </div>
-      <div class="field">
-        <label>Solde initial (€)</label>
-        <input type="number" id="acc-balance" placeholder="0.00" step="0.01">
-      </div>
-    </div>
-
-    <div class="field">
-      <label>Icône</label>
-      <div class="icon-grid" id="accountIconGrid"></div>
-    </div>
-
-    <div class="field">
-      <label>Couleur</label>
-      <div class="color-grid" id="accountColorGrid"></div>
-    </div>
-
-    <div class="field">
-      <label>Note (optionnel)</label>
-      <input type="text" id="acc-note" placeholder="Ex : compte principal du foyer…">
-    </div>
-
-    <div class="modal-actions">
-      <button class="btn" id="btn-cancelAccount">Annuler</button>
-      <button class="btn btn-primary" id="btn-saveAccount"><i class="ti ti-check"></i> Enregistrer</button>
-    </div>
-  </div>
-</div>
-
-<!-- ── Confirmer suppression compte ──────────────────────────────────────── -->
-<div class="modal-overlay" id="modal-deleteAccount">
-  <div class="modal" style="max-width:380px;" role="dialog" aria-modal="true">
-    <div class="modal-title" style="color:var(--red)">
-      <i class="ti ti-alert-triangle"></i> Supprimer ce compte ?
-    </div>
-    <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">
-      Toutes les transactions, catégories et récurrents de ce compte seront <strong>définitivement supprimés</strong>.
-    </p>
-    <div class="alert alert-over" id="deleteAccountName" style="margin-bottom:0"></div>
-    <div class="modal-actions">
-      <button class="btn" id="btn-cancelDeleteAccount">Annuler</button>
-      <button class="btn btn-danger" id="btn-confirmDeleteAccount"><i class="ti ti-trash"></i> Supprimer définitivement</button>
-    </div>
-  </div>
-</div>
-
-<!-- ── Transaction ─────────────────────────────────────────────────────────── -->
-<div class="modal-overlay" id="modal-addTxn">
-  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="txnModalTitle">
-    <div class="modal-title">
-      <i class="ti ti-receipt" style="color:var(--accent)"></i>
-      <span id="txnModalTitle">Nouvelle transaction</span>
-    </div>
-    <input type="hidden" id="txnEditId">
-    <div class="field">
-      <label>Description</label>
-      <input type="text" id="txn-desc" placeholder="Ex : Courses Lidl">
-    </div>
-    <div class="field-row">
-      <div class="field">
-        <label>Montant (€)</label>
-        <input type="number" id="txn-amount" placeholder="0.00" step="0.01" min="0">
-      </div>
-      <div class="field">
-        <label>Date</label>
-        <input type="date" id="txn-date">
-      </div>
-    </div>
-    <div class="field"><label>Catégorie</label><select id="txn-cat"></select></div>
-    <div class="field">
-      <label>Type</label>
-      <select id="txn-type">
-        <option value="debit">💸 Dépense</option>
-        <option value="credit">💰 Revenu / remboursement</option>
-      </select>
-    </div>
-    <div class="field">
-      <label>Note (optionnel)</label>
-      <input type="text" id="txn-note" placeholder="Commentaire libre…">
-    </div>
-    <div class="modal-actions">
-      <button class="btn" id="btn-cancelTxn">Annuler</button>
-      <button class="btn btn-primary" id="btn-saveTxn"><i class="ti ti-check"></i> Enregistrer</button>
-    </div>
-  </div>
-</div>
-
-<!-- ── Catégorie ───────────────────────────────────────────────────────────── -->
-<div class="modal-overlay" id="modal-addCat">
-  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="catModalTitle">
-    <div class="modal-title">
-      <i class="ti ti-layout-grid" style="color:var(--accent)"></i>
-      <span id="catModalTitle">Nouvelle catégorie</span>
-    </div>
-    <input type="hidden" id="catEditId">
-    <div class="field"><label>Nom</label><input type="text" id="cat-name" placeholder="Ex : Alimentation"></div>
-    <div class="field"><label>Icône</label><div class="emoji-grid" id="emojiGrid"></div></div>
-    <div class="field"><label>Couleur</label><div class="color-grid" id="colorGrid"></div></div>
-    <div class="field">
-      <label>Budget mensuel prévu (€)</label>
-      <input type="number" id="cat-budget" placeholder="0.00" step="0.01" min="0">
-    </div>
-    <div class="modal-actions">
-      <button class="btn" id="btn-cancelCat">Annuler</button>
-      <button class="btn btn-primary" id="btn-saveCat"><i class="ti ti-check"></i> Enregistrer</button>
-    </div>
-  </div>
-</div>
-
-<!-- ── Budget rapide ───────────────────────────────────────────────────────── -->
-<div class="modal-overlay" id="modal-editBudget">
-  <div class="modal" style="max-width:320px;" role="dialog" aria-modal="true">
-    <div class="modal-title">
-      <i class="ti ti-target" style="color:var(--accent)"></i> Modifier le budget
-    </div>
-    <input type="hidden" id="editBudgetCatId">
-    <div class="field">
-      <label>Budget mensuel pour <strong id="editBudgetCatName"></strong></label>
-      <input type="number" id="editBudgetVal" placeholder="0.00" step="0.01" min="0">
-    </div>
-    <div class="modal-actions">
-      <button class="btn" id="btn-cancelBudget">Annuler</button>
-      <button class="btn btn-primary" id="btn-saveBudget"><i class="ti ti-check"></i> Valider</button>
-    </div>
-  </div>
-</div>
-
-<!-- ── Récurrents liste ────────────────────────────────────────────────────── -->
-<div class="modal-overlay" id="modal-recurrents">
-  <div class="modal" style="max-width:560px;" role="dialog" aria-modal="true" aria-label="Paiements récurrents">
-    <div class="modal-title">
-      <i class="ti ti-repeat" style="color:var(--accent)"></i> Paiements récurrents
-    </div>
-    <p style="font-size:12px;color:var(--text-muted);margin:-8px 0 16px">
-      Injectés automatiquement chaque mois selon leur fréquence, sur ce compte.
-    </p>
-    <div id="recurList"></div>
-    <div class="modal-actions" style="margin-top:16px;">
-      <button class="btn" id="btn-closeRecurrents">Fermer</button>
-      <button class="btn btn-primary" id="btn-addRecurrent"><i class="ti ti-plus"></i> Ajouter</button>
-    </div>
-  </div>
-</div>
-
-<!-- ── Récurrent form ──────────────────────────────────────────────────────── -->
-<div class="modal-overlay" id="modal-addRecurrent">
-  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="recurModalTitle">
-    <div class="modal-title">
-      <i class="ti ti-repeat" style="color:var(--accent)"></i>
-      <span id="recurModalTitle">Nouveau récurrent</span>
-    </div>
-    <input type="hidden" id="recurEditId">
-    <div class="field"><label>Description</label><input type="text" id="recur-desc" placeholder="Ex : Loyer, Netflix, Salaire…"></div>
-    <div class="field-row">
-      <div class="field"><label>Montant (€)</label><input type="number" id="recur-amount" placeholder="0.00" step="0.01" min="0"></div>
-      <div class="field"><label>Jour du mois</label><input type="number" id="recur-day" placeholder="1" min="1" max="28" value="1"></div>
-    </div>
-    <div class="field-row">
-      <div class="field"><label>Catégorie</label><select id="recur-cat"></select></div>
-      <div class="field"><label>Type</label>
-        <select id="recur-type">
-          <option value="debit">💸 Dépense</option>
-          <option value="credit">💰 Revenu</option>
-        </select>
-      </div>
-    </div>
-    <div class="field">
-      <label>Fréquence</label>
-      <select id="recur-frequency">
-        <option value="monthly">Chaque mois</option>
-        <option value="bimonthly">Tous les 2 mois</option>
-        <option value="quarterly">Tous les trimestres</option>
-        <option value="yearly">Chaque année</option>
-      </select>
-    </div>
-    <div class="field" id="recur-startMonth-row" style="display:none">
-      <label>Mois de référence</label>
-      <select id="recur-startMonth">
-        <option value="1">Janvier</option><option value="2">Février</option>
-        <option value="3">Mars</option><option value="4">Avril</option>
-        <option value="5">Mai</option><option value="6">Juin</option>
-        <option value="7">Juillet</option><option value="8">Août</option>
-        <option value="9">Septembre</option><option value="10">Octobre</option>
-        <option value="11">Novembre</option><option value="12">Décembre</option>
-      </select>
-    </div>
-    <div class="field"><label>Note (optionnel)</label><input type="text" id="recur-note" placeholder="Commentaire…"></div>
-    <div class="modal-actions">
-      <button class="btn" id="btn-cancelRecurrent">Annuler</button>
-      <button class="btn btn-primary" id="btn-saveRecurrent"><i class="ti ti-check"></i> Enregistrer</button>
-    </div>
-  </div>
-</div>
-
-<!-- ── Paramètres ──────────────────────────────────────────────────────────── -->
-<div class="modal-overlay" id="modal-settings">
-  <div class="modal" role="dialog" aria-modal="true" aria-label="Paramètres">
-    <div class="modal-title">
-      <i class="ti ti-settings" style="color:var(--accent)"></i> Paramètres
-    </div>
-    <div class="tabs">
-      <button class="tab active" id="tab-general"><i class="ti ti-adjustments"></i> Général</button>
-      <button class="tab" id="tab-firebase"><i class="ti ti-database"></i> Firebase</button>
-    </div>
-    <div id="tab-content-general">
-      <div class="field"><label>Nom du foyer</label><input type="text" id="s-name"></div>
-      <div class="field">
-        <label>Devise</label>
-        <select id="s-currency">
-          <option value="EUR">€ Euro</option>
-          <option value="USD">$ Dollar US</option>
-          <option value="GBP">£ Livre sterling</option>
-          <option value="CHF">CHF Franc suisse</option>
-          <option value="MAD">MAD Dirham</option>
-        </select>
-      </div>
-      <div class="field"><label>Revenu mensuel total du foyer (€)</label><input type="number" id="s-income" placeholder="0.00" step="0.01"></div>
-    </div>
-    <div id="tab-content-firebase" style="display:none">
-      <div class="field"><label>API Key</label><input type="text" id="s-apiKey" readonly style="font-family:'JetBrains Mono',monospace;font-size:11px;"></div>
-      <div class="field"><label>Project ID</label><input type="text" id="s-projectId" readonly style="font-family:'JetBrains Mono',monospace;font-size:11px;"></div>
-      <div class="field"><label>Auth Domain</label><input type="text" id="s-authDomain" readonly style="font-family:'JetBrains Mono',monospace;font-size:11px;"></div>
-      <div class="field"><label>App ID</label><input type="text" id="s-appId" readonly style="font-family:'JetBrains Mono',monospace;font-size:11px;"></div>
-    </div>
-    <div class="modal-actions">
-      <button class="btn" id="btn-cancelSettings">Annuler</button>
-      <button class="btn btn-primary" id="btn-saveSettings"><i class="ti ti-check"></i> Enregistrer</button>
-    </div>
-  </div>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script type="module" src="budget.js"></script>
 </body>
 </html>
