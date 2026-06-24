@@ -86,3 +86,53 @@ async function withErrorToast(fn) {
     throw err;
   }
 }
+
+// ------------------------------------------------------------
+// Modal générique réutilisable par tous les modules
+// ------------------------------------------------------------
+
+function showModal(innerHTML, onMount) {
+  closeModal(); // sécurité : pas deux modales en même temps
+
+  const backdrop = document.createElement('div');
+  backdrop.id = 'app-modal-backdrop';
+  backdrop.style.position = 'fixed';
+  backdrop.style.inset = '0';
+  backdrop.style.background = 'rgba(31,43,45,0.35)';
+  backdrop.style.zIndex = '49';
+
+  const modal = document.createElement('div');
+  modal.id = 'app-modal';
+  modal.className = 'card';
+  modal.style.position = 'fixed';
+  modal.style.top = '50%';
+  modal.style.left = '50%';
+  modal.style.transform = 'translate(-50%, -50%)';
+  modal.style.zIndex = '50';
+  modal.style.width = 'min(460px, 90vw)';
+  modal.style.maxHeight = '85vh';
+  modal.style.overflowY = 'auto';
+  modal.style.boxShadow = '0 8px 30px rgba(0,0,0,0.18)';
+  modal.innerHTML = innerHTML;
+
+  document.body.appendChild(backdrop);
+  document.body.appendChild(modal);
+
+  backdrop.addEventListener('click', closeModal);
+  modal.querySelectorAll('[data-modal-cancel]').forEach(btn => {
+    btn.addEventListener('click', closeModal);
+  });
+
+  // Empêche la fermeture quand on clique dans la modale elle-même
+  modal.addEventListener('click', (e) => e.stopPropagation());
+
+  if (onMount) onMount(modal);
+  return modal;
+}
+
+function closeModal() {
+  const backdrop = document.getElementById('app-modal-backdrop');
+  const modal = document.getElementById('app-modal');
+  if (backdrop) backdrop.remove();
+  if (modal) modal.remove();
+}
