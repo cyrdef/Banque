@@ -125,17 +125,7 @@ function rowDF(item) {
 
 function openDFForm(existing) {
   const isEdit = !!existing;
-  const overlay = document.createElement('div');
-  overlay.className = 'card';
-  overlay.style.position = 'fixed';
-  overlay.style.top = '50%';
-  overlay.style.left = '50%';
-  overlay.style.transform = 'translate(-50%, -50%)';
-  overlay.style.zIndex = '50';
-  overlay.style.width = 'min(440px, 90vw)';
-  overlay.style.boxShadow = '0 8px 30px rgba(0,0,0,0.18)';
-
-  overlay.innerHTML = `
+  showModal(`
     <h3>${isEdit ? 'Modifier la ligne' : 'Nouvelle ligne'}</h3>
     <form id="df-form">
       <div class="form-grid" style="margin-bottom:12px;">
@@ -167,47 +157,34 @@ function openDFForm(existing) {
         </div>
       </div>
       <div class="flex gap-8" style="justify-content:flex-end;">
-        <button type="button" class="btn" id="df-cancel">Annuler</button>
+        <button type="button" class="btn" data-modal-cancel>Annuler</button>
         <button type="submit" class="btn btn-primary">${isEdit ? 'Enregistrer' : 'Ajouter'}</button>
       </div>
     </form>
-  `;
+  `, (modal) => {
+    modal.querySelector('#df-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const data = {
+        designation: modal.querySelector('#df-designation').value.trim(),
+        montant: parseFloat(modal.querySelector('#df-montant').value),
+        type: modal.querySelector('#df-type').value,
+        categorie: modal.querySelector('#df-categorie').value.trim(),
+        recurrente: modal.querySelector('#df-recurrente').checked,
+        annee: dfState.annee,
+        mois: dfState.mois
+      };
 
-  const backdrop = document.createElement('div');
-  backdrop.style.position = 'fixed';
-  backdrop.style.inset = '0';
-  backdrop.style.background = 'rgba(31,43,45,0.35)';
-  backdrop.style.zIndex = '49';
-
-  document.body.appendChild(backdrop);
-  document.body.appendChild(overlay);
-
-  const close = () => { backdrop.remove(); overlay.remove(); };
-  backdrop.addEventListener('click', close);
-  overlay.querySelector('#df-cancel').addEventListener('click', close);
-
-  overlay.querySelector('#df-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const data = {
-      designation: overlay.querySelector('#df-designation').value.trim(),
-      montant: parseFloat(overlay.querySelector('#df-montant').value),
-      type: overlay.querySelector('#df-type').value,
-      categorie: overlay.querySelector('#df-categorie').value.trim(),
-      recurrente: overlay.querySelector('#df-recurrente').checked,
-      annee: dfState.annee,
-      mois: dfState.mois
-    };
-
-    await withErrorToast(async () => {
-      if (isEdit) {
-        await updateDoc('depensesFixes', existing.id, data);
-        showToast('Ligne modifiée');
-      } else {
-        await addDoc('depensesFixes', data);
-        showToast('Ligne ajoutée');
-      }
-      close();
-      await renderDepensesFixes(document.getElementById('module-content'));
+      await withErrorToast(async () => {
+        if (isEdit) {
+          await updateDoc('depensesFixes', existing.id, data);
+          showToast('Ligne modifiée');
+        } else {
+          await addDoc('depensesFixes', data);
+          showToast('Ligne ajoutée');
+        }
+        closeModal();
+        await renderDepensesFixes(document.getElementById('module-content'));
+      });
     });
   });
 }
